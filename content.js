@@ -32,8 +32,8 @@
   // conversational generation — the most natural sounding, so they come first.
   const NEURAL_VOICES = {
     US: [
-      ['en-US-AvaMultilingualNeural', 'Ava — nữ · tự nhiên nhất'],
       ['en-US-AndrewMultilingualNeural', 'Andrew — nam · tự nhiên nhất'],
+      ['en-US-AvaMultilingualNeural', 'Ava — nữ · tự nhiên nhất'],
       ['en-US-EmmaMultilingualNeural', 'Emma — nữ · tự nhiên nhất'],
       ['en-US-BrianMultilingualNeural', 'Brian — nam · tự nhiên nhất'],
       ['en-US-AriaNeural', 'Aria — nữ'],
@@ -74,6 +74,7 @@
     up: 'M7.4 15.4 12 10.8l4.6 4.6L18 14l-6-6-6 6z',
     down: 'M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z',
     book: 'M18 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM6 4h5v8l-2.5-1.5L6 12V4z',
+    cc: 'M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-8 7H9.5v-.5h-2v3h2V13H11v1a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1zm7 0h-1.5v-.5h-2v3h2V13H18v1a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1z',
     system: 'M3 4h18v13H3V4zm2 2v9h14V6H5zm3 13h8v2H8z',
     moon: 'M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.4 5.4 0 0 1-4.4 2.26 5.4 5.4 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z',
     sun: 'M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM2 13h2a1 1 0 0 0 0-2H2a1 1 0 0 0 0 2zm18 0h2a1 1 0 0 0 0-2h-2a1 1 0 0 0 0 2zM11 2v2a1 1 0 0 0 2 0V2a1 1 0 0 0-2 0zm0 18v2a1 1 0 0 0 2 0v-2a1 1 0 0 0-2 0zM5.99 4.58a1 1 0 0 0-1.41 1.41l1.06 1.06a1 1 0 0 0 1.41-1.41L5.99 4.58zm12.37 12.37a1 1 0 0 0-1.41 1.41l1.06 1.06a1 1 0 0 0 1.41-1.41l-1.06-1.06zm1.06-10.96a1 1 0 0 0-1.41-1.41l-1.06 1.06a1 1 0 0 0 1.41 1.41l1.06-1.06zM7.05 18.36a1 1 0 0 0-1.41-1.41l-1.06 1.06a1 1 0 0 0 1.41 1.41l1.06-1.06z',
@@ -87,7 +88,7 @@
     accent: 'US',
     rate: 1,
     engine: 'neural', // 'neural' (Edge voices, online) | 'browser' (Web Speech API)
-    neuralUS: 'en-US-AvaMultilingualNeural',
+    neuralUS: 'en-US-AndrewMultilingualNeural',
     neuralUK: 'en-GB-SoniaNeural',
     voiceUS: '',
     voiceUK: '',
@@ -101,6 +102,12 @@
     repeat: false,
     repeatTimes: 3, // 0 = endless
     shadowGap: 1, // pause after each sentence = sentence duration × this
+    shadowBeep: true, // short beep when it's the learner's turn to speak
+    subtitles: true, // YouTube-style Vietnamese subtitle over the page
+    subSize: 16, // subtitle font size (px)
+    subPos: 'bottom', // bottom | top
+    subBg: 'solid', // solid | dim | none
+    pageTimeline: true, // reading timeline pinned at the bottom of the page
     theme: '', // light | dark ('' = follow the system the first time, then remembered)
     dimOthers: true, // fade the other sentences while reading
     width: 420,
@@ -123,9 +130,22 @@
       }
       // v2: the old default US voice (Aria) → the more natural Ava Multilingual
       if (settings.defaultsVersion < 2) {
-        if (!settings.neuralUS || settings.neuralUS === 'en-US-AriaNeural') settings.neuralUS = 'en-US-AvaMultilingualNeural';
+        if (!settings.neuralUS || settings.neuralUS === 'en-US-AriaNeural') settings.neuralUS = 'en-US-AndrewMultilingualNeural';
         if (settings.engine !== 'browser') settings.engine = 'neural';
         settings.defaultsVersion = 2;
+        saveSettings();
+      }
+      // v3: subtitle text defaults to 16px
+      if (settings.defaultsVersion < 3) {
+        if (!settings.subSize || settings.subSize === 19) settings.subSize = 16;
+        settings.defaultsVersion = 3;
+        saveSettings();
+      }
+      // v4: Andrew (Multilingual) is the default US natural voice, natural voices are the default engine
+      if (settings.defaultsVersion < 4) {
+        if (!settings.neuralUS || /^en-US-(Aria|AvaMultilingual)Neural$/.test(settings.neuralUS)) settings.neuralUS = 'en-US-AndrewMultilingualNeural';
+        settings.engine = 'neural';
+        settings.defaultsVersion = 4;
         saveSettings();
       }
     })
@@ -196,6 +216,55 @@
     'nav,header,footer,aside,form,button,pre,figure > figcaption,[role="navigation"],[role="banner"],[role="contentinfo"],' +
     '[role="complementary"],[role="dialog"],[aria-hidden="true"],.sr-only,.visually-hidden,.screen-reader-text';
   const MAX_PAGE_CHARS = 60000;
+  const FOOTNOTE_RE = /^\s*[[(]?\s*(\d{1,4}|[a-z]|[*†‡§¶])\s*[\])]?\s*$/i;
+  // only plain text is read: no scripts, media, graphics, formulas or embedded frames
+  const NON_TEXT_TAGS =
+    /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE|TEXTAREA|SELECT|svg|SVG|MATH|math|CANVAS|VIDEO|AUDIO|IFRAME|OBJECT|EMBED|PICTURE|IMG)$/;
+  const CODE_LIKE_RE = /[(){}[\];=<>/\\|`$#@]|\w\.\w|^\s*\S{25,}\s*$/;
+  // links, e-mail addresses and emoji found inside text
+  const NON_TEXT_RES = [
+    /\b(?:https?:\/\/|ftp:\/\/|www\.)[^\s<>"'`]*[^\s<>"'`.,;:!?)\]]/gi,
+    /\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b/g,
+    /\p{Extended_Pictographic}️?/gu,
+  ];
+
+  // Drop link / e-mail / emoji characters from a capture, keeping the char→DOM map aligned
+  function cleanCapture(text, nodes, offs) {
+    const drop = new Uint8Array(text.length);
+    for (const re of NON_TEXT_RES) for (const m of text.matchAll(re)) drop.fill(1, m.index, m.index + m[0].length);
+    if (!drop.includes(1)) return { text, map: { nodes, offs } };
+    let out = '';
+    const n2 = [];
+    const o2 = [];
+    const isSep = (ch) => ch === ' ' || ch === '\n';
+    for (let i = 0; i < text.length; i++) {
+      if (drop[i]) continue;
+      const ch = text[i];
+      const last = out[out.length - 1];
+      if (isSep(ch)) {
+        if (!out) continue;
+        if (isSep(last)) {
+          // collapse the gap left by a removed link; a paragraph break wins over a space
+          if (ch === '\n') out = `${out.slice(0, -1)}\n`;
+          continue;
+        }
+      } else if (/[,.;:!?)]/.test(ch) && last === ' ') {
+        // "see https://x.com, then" → "see, then"
+        out = out.slice(0, -1);
+        n2.pop();
+        o2.pop();
+      }
+      out += ch;
+      n2.push(nodes[i]);
+      o2.push(offs[i]);
+    }
+    while (out && isSep(out[out.length - 1])) {
+      out = out.slice(0, -1);
+      n2.pop();
+      o2.pop();
+    }
+    return out ? { text: out, map: { nodes: n2, offs: o2 } } : null;
+  }
 
   // Range → plain text + char→DOM map (for page highlighting)
   function captureRange(range, { skipChrome = false, maxChars = Infinity } = {}) {
@@ -207,7 +276,11 @@
       acceptNode(n) {
         if (!range.intersectsNode(n)) return NodeFilter.FILTER_REJECT;
         if (n.nodeType === Node.ELEMENT_NODE) {
-          if (n === ui.host || /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE|TEXTAREA|SELECT)$/.test(n.tagName)) return NodeFilter.FILTER_REJECT;
+          if (n === ui.host || NON_TEXT_TAGS.test(n.tagName)) return NodeFilter.FILTER_REJECT;
+          // inline code that reads as code ("go work()", "runtime.Gosched") — plain identifiers stay
+          if (/^(CODE|KBD|SAMP|TT)$/.test(n.tagName) && CODE_LIKE_RE.test(n.textContent)) return NodeFilter.FILTER_REJECT;
+          // footnote markers ("feedback.¹⁰⁷ It…", "[12]") break sentence splitting and get read aloud
+          if (n.tagName === 'SUP' && FOOTNOTE_RE.test(n.textContent)) return NodeFilter.FILTER_REJECT;
           if (skipChrome && n !== root && n.matches(PAGE_CHROME)) return NodeFilter.FILTER_REJECT;
           if (n.checkVisibility && !n.checkVisibility()) return NodeFilter.FILTER_REJECT;
           return n.tagName === 'BR' ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
@@ -257,7 +330,7 @@
         offs.push(i);
       }
     }
-    return text ? { text, map: { nodes, offs } } : null;
+    return text ? cleanCapture(text, nodes, offs) : null;
   }
 
   // ---------------------------------------------------------------------------
@@ -628,11 +701,27 @@
     return local.pending;
   }
 
+  // Chrome's translator may return only the first sentence of a multi-sentence input
+  // (e.g. "feedback.107 It can occur…"), so each line is translated sentence by sentence.
+  const splitSentences = (line) =>
+    line
+      .split(/(?<=[.!?…]["'”’)\]]*\d{0,4})\s+(?=["“'(\[]?[A-Z0-9])/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
   async function localTranslate(lines) {
     const t = await localTranslator();
     if (!t) return null;
     const out = [];
-    for (const l of lines) out.push(l ? (await t.translate(l)).trim() : '');
+    for (const l of lines) {
+      if (!l) {
+        out.push('');
+        continue;
+      }
+      const parts = [];
+      for (const piece of splitSentences(l)) parts.push((await t.translate(piece)).trim());
+      out.push(parts.join(' '));
+    }
     return out;
   }
 
@@ -932,11 +1021,18 @@
   const useNeural = () => settings.engine === 'neural' && Date.now() >= player.neuralDownUntil;
   const neuralVoice = (acc = settings.accent) => settings[`neural${acc}`] || NEURAL_VOICES[acc][0][0];
 
+  // Preferred browser voices (also the automatic fallback when the natural voices fail):
+  // Edge "Natural" voices first, then Microsoft Mark (US) / George (UK) and friends
+  const PREFERRED_VOICES = {
+    'en-us': [/natural|neural/i, /\bmark\b/i, /\bzira\b/i, /\bdavid\b/i, /google/i],
+    'en-gb': [/natural|neural/i, /\bgeorge\b/i, /\bhazel\b/i, /\bsusan\b/i, /google/i],
+  };
+
   function scoreVoice(v) {
-    let s = 0;
-    if (/natural|neural/i.test(v.name)) s += 4; // Edge online voices: best quality + word events
+    const prefs = PREFERRED_VOICES[voiceLang(v)] || [];
+    const idx = prefs.findIndex((re) => re.test(v.name));
+    let s = idx >= 0 ? (prefs.length - idx) * 10 : 0;
     if (v.localService) s += 2; // local voices fire word-boundary events → exact highlighting
-    if (/google/i.test(v.name)) s += 1;
     return s;
   }
 
@@ -1025,6 +1121,7 @@
     stopSource();
     player.utter = null;
     setShadow(-1);
+    setShadowPhase('idle');
   }
 
   function play(from) {
@@ -1175,6 +1272,7 @@
 
   function updateTimeEstimate() {
     if (!ui.time) return;
+    positionSubtitle(); // the timeline shows up once a passage is open
     if (!doc?.sentences.length) {
       ui.time.textContent = '';
       if (ui.pfill) ui.pfill.style.width = '0';
@@ -1188,7 +1286,7 @@
     const voiceName = useNeural()
       ? (NEURAL_VOICES[settings.accent].find(([id]) => id === neuralVoice())?.[1] || neuralVoice()).replace(/ — .*/, '')
       : currentVoice()?.name || 'giọng trình duyệt';
-    ui.time.textContent = `⏱ ${fmtClock(pos)} / ${fmtClock(total)}`;
+    ui.time.textContent = `${fmtClock(pos)} / ${fmtClock(total)}`;
     if (ui.pfill) ui.pfill.style.width = total === Infinity || !total ? '0' : `${Math.min(100, (pos / total) * 100)}%`;
     ui.time.title = [
       'Thời gian đọc (ước lượng)',
@@ -1244,6 +1342,7 @@
   }
 
   function speakChunk(from) {
+    if (settings.repeat) setShadowPhase('listen');
     if (useNeural()) speakNeural(from);
     else speakBrowser(from);
   }
@@ -1273,7 +1372,8 @@
     const dur = player.sentStartAt ? performance.now() - player.sentStartAt : 2000;
     const gap = settings.shadowGap ? Math.min(20000, Math.max(800, dur * settings.shadowGap)) : 250;
     player.sentStartAt = 0;
-    setShadow(si, `🎤 Nói theo… (lần ${player.rep.count}/${times === Infinity ? '∞' : times})`);
+    setShadow(si, `🎤 Đến lượt bạn — nói to theo câu này (lần ${player.rep.count}/${times === Infinity ? '∞' : times})`);
+    setShadowPhase('speak', gap);
     player.timers.push(
       setTimeout(() => {
         if (!live()) return;
@@ -1337,7 +1437,8 @@
         // fall back for a minute, then try the natural voice again
         player.neuralDownUntil = Date.now() + 60000;
         player.neuralError = err.message;
-        status(`Giọng tự nhiên tạm lỗi (${err.message}) — dùng giọng trình duyệt, sẽ thử lại sau 1 phút`);
+        const fb = currentVoice()?.name?.replace(/^Microsoft\s+/, '').replace(/\s+-\s+.*$/, '') || 'giọng trình duyệt';
+        status(`Giọng tự nhiên tạm lỗi (${err.message}) — tự chuyển sang ${fb}, sẽ thử lại sau 1 phút`);
         speakBrowser(from);
       }
     );
@@ -1468,9 +1569,11 @@
       ensureTranslated(sent);
       updateTimeEstimate();
       applyPageDim();
+      if (ui.readView) applyViewClasses(); // focus mode starts once there is a position
     }
     t?.el?.classList.add('cur');
-    if (ui.prog) ui.prog.textContent = doc?.sentences.length ? `${t ? t.sent + 1 : 0}/${doc.sentences.length}` : '';
+    updateSubtitle();
+    if (ui.prog) ui.prog.textContent = doc?.sentences.length ? `câu ${t ? t.sent + 1 : 0}/${doc.sentences.length}` : '';
   }
 
   function scrollIntoPanel(el) {
@@ -1496,10 +1599,80 @@
 
   function setShadow(si, label) {
     for (const el of ui.readView?.querySelectorAll('.sb.shadow') || []) el.classList.remove('shadow');
+    if (HAS_HL) CSS.highlights.delete('tuyewn-speak');
     const s = doc?.sentences[si];
     if (!s?.el) return;
     s.el.dataset.shadow = label || '';
     s.el.classList.add('shadow');
+    // the sentence to repeat turns orange on the page too
+    const r = HAS_HL && doc.map ? pageRange(s.start, s.end) : null;
+    if (r) {
+      const hl = new Highlight(r);
+      hl.priority = 3;
+      CSS.highlights.set('tuyewn-speak', hl);
+    }
+  }
+
+  // --- shadowing coach: 🎧 listen → 🎤 your turn (countdown), repeated N times ---------------
+
+  function shadowCount() {
+    const si = player.sentMarked;
+    return si >= 0 && player.rep.sent === si ? player.rep.count : 0;
+  }
+
+  function beep() {
+    if (!settings.shadowBeep) return;
+    try {
+      const ctx = audioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.25);
+    } catch {}
+  }
+
+  // phase: 'idle' | 'listen' | 'speak'
+  function setShadowPhase(phase, gapMs = 0) {
+    const bar = ui.shadowBar;
+    if (!bar) return;
+    bar.hidden = !settings.repeat || settings.tab !== 'read' || !doc?.sentences.length;
+    if (bar.hidden) return;
+    const times = settings.repeatTimes || Infinity;
+    const done = shadowCount(); // finished listens of the current sentence
+    const round = phase === 'speak' ? done : Math.min(done + 1, times);
+    bar.dataset.phase = phase;
+    ui.shDots.replaceChildren(
+      ...(times === Infinity
+        ? [h('span', { class: 'n' }, `lần ${Math.max(round, 1)}`)]
+        : Array.from({ length: times }, (_, i) => h('span', { class: `dot${i < round ? ' on' : ''}${i === round - 1 ? ' cur' : ''}` })))
+    );
+    ui.shDots.title = times === Infinity ? 'Lặp mãi' : `Lần ${Math.max(round, 1)}/${times}`;
+    const simultaneous = !settings.shadowGap;
+    ui.shMsg.textContent =
+      phase === 'speak'
+        ? simultaneous
+          ? 'Chuẩn bị nghe lại…'
+          : 'Đến lượt bạn! Nói to câu vừa nghe, bắt chước ngữ điệu.'
+        : phase === 'listen'
+          ? simultaneous
+            ? 'Nói cùng lúc với giọng đọc (shadowing)'
+            : 'Nghe kỹ: chú ý trọng âm, nối âm và ngữ điệu…'
+          : 'Bấm ▶ để bắt đầu luyện nói theo từng câu';
+    // countdown for the learner's turn
+    const fill = ui.shCountFill;
+    fill.style.transition = 'none';
+    fill.style.width = phase === 'speak' && !simultaneous ? '100%' : '0';
+    if (phase === 'speak' && !simultaneous) {
+      void fill.offsetWidth; // restart the transition
+      fill.style.transition = `width ${gapMs}ms linear`;
+      fill.style.width = '0';
+      beep();
+    }
   }
 
   function pageRange(start, end) {
@@ -1576,10 +1749,17 @@
     hw.priority = 10;
     CSS.highlights.set('tuyewn-word', hw);
 
-    // follow the reading position on the page
+    // follow the reading position on the page, keeping it clear of the subtitle and timeline
     if (player.playing && performance.now() - player.lastScroll > 800) {
       const rect = wr.getBoundingClientRect();
-      if (rect.height && (rect.top < 60 || rect.bottom > innerHeight - 60)) {
+      let topLimit = 60;
+      let bottomLimit = innerHeight - (ui.tl && !ui.tl.hidden ? 56 : 60);
+      const subBox = ui.sub && !ui.sub.hidden ? ui.sub.firstChild.getBoundingClientRect() : null;
+      if (subBox) {
+        if (subBox.top > innerHeight / 2) bottomLimit = Math.min(bottomLimit, subBox.top - 16);
+        else topLimit = Math.max(topLimit, subBox.bottom + 16);
+      }
+      if (rect.height && (rect.top < topLimit || rect.bottom > bottomLimit)) {
         player.lastScroll = performance.now();
         wr.startContainer.parentElement?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       }
@@ -1614,27 +1794,136 @@
     }
   }
 
-  // Focus mode on the page: while reading, every sentence except the current one fades to grey
+  // ---------------------------------------------------------------------------
+  // YouTube-style subtitle over the page: the Vietnamese translation of the sentence being read
+  // (the English sentence itself is already highlighted on the page), centred at the bottom
+  // ---------------------------------------------------------------------------
+
+  const sub = { sent: -1, flip: false, raf: 0 };
+
+  // Keep the subtitle off the sentence being read: preferred edge first, the other edge if that
+  // covers it, and back to the preferred edge if both would (a very tall sentence)
+  function avoidSubtitleOverlap() {
+    const box = ui.sub?.firstChild;
+    const s = doc?.sentences[player.sentMarked];
+    if (!box || ui.sub.hidden || !s || !doc.map) return;
+    s.pageRange ??= pageRange(s.start, s.end);
+    const rects = s.pageRange ? [...s.pageRange.getClientRects()] : [];
+    if (!rects.length) return;
+    const GAP = 12; // keep some breathing room between the sentence and the subtitle
+    const covers = () => {
+      const b = box.getBoundingClientRect();
+      return rects.some((r) => r.bottom > b.top - GAP && r.top < b.bottom + GAP && r.right > b.left && r.left < b.right);
+    };
+    const was = sub.flip;
+    sub.flip = false;
+    positionSubtitle();
+    if (covers()) {
+      sub.flip = true;
+      positionSubtitle();
+      if (covers()) {
+        sub.flip = false;
+        positionSubtitle();
+      }
+    }
+    if (was !== sub.flip) ui.sub.classList.add('moved');
+  }
+
+  function onPageScrollForSub() {
+    if (sub.raf) return;
+    sub.raf = requestAnimationFrame(() => {
+      sub.raf = 0;
+      avoidSubtitleOverlap();
+    });
+  }
+
+  function updateSubtitle() {
+    const box = ui.sub;
+    if (!box) return;
+    syncCcButtons();
+    const si = player.sentMarked;
+    const vi = viSent[si] || '';
+    if (!settings.subtitles || si < 0 || !vi || STANDALONE) {
+      box.hidden = true;
+      sub.sent = -1;
+      return;
+    }
+    if (sub.sent !== si) {
+      sub.sent = si;
+      ui.subVi.classList.remove('shown'); // "hide translation": blurred again for each new sentence
+    }
+    ui.subVi.textContent = vi;
+    ui.subVi.classList.toggle('blur', settings.hideTrans);
+    box.hidden = false;
+    positionSubtitle();
+    avoidSubtitleOverlap();
+  }
+
+  function toggleSubtitles() {
+    settings.subtitles = !settings.subtitles;
+    saveSettings();
+    updateSubtitle();
+    if (!ui.menu?.hidden) renderMenu();
+    status(settings.subtitles ? 'Phụ đề: bật' : 'Phụ đề: tắt — bấm CC để bật lại');
+  }
+
+  function syncCcButtons() {
+    for (const b of [ui.ccBtn, ui.pillCc]) {
+      if (!b) continue;
+      b.classList.toggle('on', settings.subtitles);
+      b.title = settings.subtitles ? 'Ẩn phụ đề tiếng Việt (C)' : 'Hiện phụ đề tiếng Việt kiểu YouTube (C)';
+    }
+  }
+
+  // Lay out the page overlays over the part of the page the panel leaves visible:
+  // the timeline pinned at the bottom, the subtitle above it (or at the top)
+  function positionSubtitle() {
+    if (!ui.sub || !ui.tl) return;
+    const panelOpen = ui.panel && !ui.panel.hidden;
+    const panelW = panelOpen ? ui.panel.getBoundingClientRect().width : 0;
+    const areaW = Math.max(240, innerWidth - panelW);
+    const showTl = settings.pageTimeline && !!doc?.sentences.length && !STANDALONE;
+    ui.tl.hidden = !showTl;
+    // compact, centred under the reading area; keeps clear of the minimized pill at the bottom-right
+    const tlW = Math.max(220, Math.min(560, areaW - 32 - (panelOpen ? 0 : 300)));
+    ui.tl.style.width = `${tlW}px`;
+    ui.tl.style.left = `${Math.max(12, (areaW - tlW) / 2)}px`;
+    ui.sub.style.left = '0px';
+    ui.sub.style.width = `${areaW}px`;
+    // the subtitle moves to the other edge while it would cover the sentence being read
+    const top = (settings.subPos === 'top') !== sub.flip;
+    ui.sub.style.top = top ? '16px' : 'auto';
+    ui.sub.style.bottom = top ? 'auto' : `${showTl ? 50 : 20}px`;
+    ui.sub.style.setProperty('--sub-size', `${settings.subSize}px`);
+    ui.sub.dataset.bg = settings.subBg;
+  }
+
+  // Focus mode on the page: once there is a reading position (playing or paused), the sentences
+  // not read yet fade strongly and the ones already read fade lightly
   function applyPageDim() {
     if (!HAS_HL) return;
     const cur = player.sentMarked;
-    if (!doc?.map || !settings.dimOthers || !player.playing || cur < 0) {
+    if (!doc?.map || !settings.dimOthers || cur < 0) {
       CSS.highlights.delete('tuyewn-dim');
+      CSS.highlights.delete('tuyewn-dim-read');
       return;
     }
-    const hl = new Highlight();
-    hl.priority = 2; // above the passage tint, below the current word
+    const ahead = new Highlight();
+    const read = new Highlight();
+    ahead.priority = read.priority = 2; // above the passage tint, below the current word
     doc.sentences.forEach((s, i) => {
       if (i === cur) return;
       s.pageRange ??= pageRange(s.start, s.end);
-      if (s.pageRange) hl.add(s.pageRange);
+      if (s.pageRange) (i > cur ? ahead : read).add(s.pageRange);
     });
-    CSS.highlights.set('tuyewn-dim', hl);
+    CSS.highlights.set('tuyewn-dim', ahead);
+    CSS.highlights.set('tuyewn-dim-read', read);
   }
 
   function clearPageHighlights() {
     if (!HAS_HL) return;
     CSS.highlights.delete('tuyewn-dim');
+    CSS.highlights.delete('tuyewn-dim-read');
     CSS.highlights.delete('tuyewn-selection');
     CSS.highlights.delete('tuyewn-word');
     CSS.highlights.delete('tuyewn-sent');
@@ -1818,12 +2107,24 @@ select{font:inherit;font-size:12px;color:var(--fg);background:var(--bg);border:1
 .rep.on .badge{display:block}
 .speed{margin-left:6px;font-variant-numeric:tabular-nums;font-weight:600}
 .aa{width:auto;padding:0 8px;font-weight:800;font-size:13px;letter-spacing:-.02em}
-.meta{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;line-height:1.25;min-width:0}
-.prog{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
-.time{font-size:12px;font-weight:600;color:var(--fg);font-variant-numeric:tabular-nums;white-space:nowrap;cursor:help}
-.pbar{position:absolute;left:0;right:0;bottom:-1px;height:3px;background:var(--line);cursor:pointer;z-index:2;transition:height .12s}
-.pbar:hover{height:7px}
-.pfill{height:100%;width:0;background:var(--accent);transition:width .3s linear}
+/* reading timeline pinned on the page (YouTube-style) */
+.tl{position:fixed;bottom:10px;display:flex;align-items:center;gap:8px;height:30px;padding:0 12px 0 4px;border-radius:999px;
+  background:rgba(8,12,18,.72);color:#fff;font:600 12px/1 ${FONT};box-shadow:0 4px 16px rgba(0,0,0,.18);z-index:2147483646;
+  opacity:.6;transition:opacity .2s}
+.tl:hover{opacity:1}
+.tl[hidden]{display:none}
+.tl-btn{width:24px;height:24px;display:grid;place-items:center;border-radius:50%;color:#fff;flex:none}
+.tl-btn:hover{background:rgba(255,255,255,.15)}
+.tl-btn svg{width:15px;height:15px}
+.tl-time{font-variant-numeric:tabular-nums;white-space:nowrap;cursor:help}
+.tl-bar{flex:1;min-width:60px;height:20px;display:flex;align-items:center;cursor:pointer}
+.tl-track{position:relative;width:100%;height:3px;border-radius:2px;background:rgba(255,255,255,.25);transition:height .12s}
+.tl:hover .tl-track{height:5px}
+.tl-fill{position:relative;height:100%;width:0;border-radius:inherit;background:#FFD400;transition:width .3s linear}
+.tl-fill::after{content:'';position:absolute;right:-5px;top:50%;width:10px;height:10px;margin-top:-5px;border-radius:50%;background:#FFD400;
+  opacity:0;transition:opacity .15s}
+.tl:hover .tl-fill::after{opacity:1}
+.tl-sent{color:rgba(255,255,255,.7);font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
 
 .menu{position:absolute;top:calc(100% + 4px);right:8px;width:310px;max-height:70vh;overflow:auto;background:var(--bg);border:1px solid var(--line);
   border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,.22);padding:12px 14px;z-index:6}
@@ -1851,8 +2152,10 @@ select{font:inherit;font-size:12px;color:var(--fg);background:var(--bg);border:1
 .sb{position:relative;padding:6px 34px 6px 12px;margin:2px 0;border-left:3px solid transparent;border-radius:0 10px 10px 0}
 .sb.para{margin-top:16px}
 .sb.cur{background:var(--sent);border-left-color:var(--sent-line)}
-.read-view.focus .sb:not(.cur){opacity:.45;transition:opacity .25s}
-.read-view.focus .sb:not(.cur):hover{opacity:.8}
+.read-view.focus .sb{opacity:.5;transition:opacity .25s}
+.read-view.focus .sb.cur{opacity:1}
+.read-view.focus .sb.cur ~ .sb{opacity:.28}
+.read-view.focus .sb:hover{opacity:.85}
 .sb .en{overflow-wrap:break-word}
 .sb .vn{display:none;margin-top:5px;font-size:.88em;line-height:1.55;color:var(--vi)}
 .bilingual .sb .vn,.sb.cur .vn{display:block}
@@ -1861,7 +2164,30 @@ select{font:inherit;font-size:12px;color:var(--fg);background:var(--bg);border:1
 .hide-trans .sb.cur .vn:not(.shown)::after{content:''}
 .sb-play{position:absolute;right:4px;top:5px;opacity:0;transition:opacity .15s}
 .sb:hover .sb-play,.sb.cur .sb-play{opacity:1}
-.sb.shadow::after{content:attr(data-shadow);display:block;margin-top:6px;font-size:12.5px;font-weight:700;color:var(--accent)}
+.sb.shadow{border-left-color:var(--under);background:color-mix(in srgb,var(--under) 13%,transparent);animation:tr-pulse 1.4s ease-in-out infinite}
+.sb.shadow::after{content:attr(data-shadow);display:block;margin-top:8px;font-size:13px;font-weight:700;color:var(--under)}
+@keyframes tr-pulse{50%{box-shadow:0 0 0 3px color-mix(in srgb,var(--under) 28%,transparent)}}
+@media (prefers-reduced-motion:reduce){.sb.shadow{animation:none}}
+
+/* shadowing coach */
+.shadow-bar{padding:8px 12px 0;border-bottom:1px solid var(--line);background:var(--soft)}
+.shadow-bar[hidden]{display:none}
+.sb-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.shadow-bar .step{padding:3px 10px;border-radius:999px;font-weight:700;font-size:12.5px;color:var(--muted);border:1px solid var(--line);background:var(--bg)}
+.shadow-bar .arrow{color:var(--muted)}
+.shadow-bar[data-phase="listen"] .step.listen{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.shadow-bar[data-phase="speak"] .step.speak{background:var(--under);color:#fff;border-color:var(--under);animation:tr-pulse 1.4s ease-in-out infinite}
+.shadow-bar .dots{display:inline-flex;gap:4px;margin-left:4px;align-items:center}
+.shadow-bar .dot{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--muted)}
+.shadow-bar .dot.on{background:var(--muted)}
+.shadow-bar .dot.cur{background:var(--accent);border-color:var(--accent)}
+.shadow-bar[data-phase="speak"] .dot.cur{background:var(--under);border-color:var(--under)}
+.shadow-bar .dots .n{font-size:12px;color:var(--muted)}
+.sb-btns{margin-left:auto;display:flex;gap:4px}
+.sb-msg{margin:6px 0 6px;font-size:13px;font-weight:600;color:var(--fg)}
+.shadow-bar[data-phase="speak"] .sb-msg{color:var(--under);font-size:14px}
+.countdown{height:4px;margin:0 -12px;background:transparent}
+.countdown .fill{height:100%;width:0;background:var(--under)}
 .w{border-radius:4px;cursor:${LOOKUP_CURSOR}}
 .w:hover{background:var(--line)}
 .ipa,.wvi{display:none;user-select:none;white-space:nowrap}
@@ -1919,6 +2245,21 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .ft{padding:4px 14px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:22px}
 
 /* minimized pill */
+/* YouTube-style subtitle over the page */
+.subs{position:fixed;bottom:36px;display:flex;justify-content:center;pointer-events:none;z-index:2147483646}
+.subs[hidden]{display:none}
+.sub-box{max-width:min(860px,88%);padding:8px 16px 10px;border-radius:8px;background:rgba(8,12,18,.82);color:#fff;text-align:center;
+  font:500 15px/1.45 ${FONT};box-shadow:0 6px 24px rgba(0,0,0,.25);pointer-events:auto}
+.sub-box{position:relative}
+.sub-vi{color:#fff;font-size:var(--sub-size,16px);font-weight:600;line-height:1.4;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.subs[data-bg="dim"] .sub-box{background:rgba(8,12,18,.5)}
+.subs[data-bg="none"] .sub-box{background:transparent;box-shadow:none}
+.subs[data-bg="none"] .sub-vi{text-shadow:0 0 3px #000,0 0 3px #000,0 1px 5px #000}
+.sub-x{position:absolute;top:-10px;right:-10px;width:24px;height:24px;border-radius:50%;background:#1b2430;color:#fff;border:1px solid rgba(255,255,255,.3);
+  font:700 15px/1 ${FONT};opacity:0;transition:opacity .15s}
+.sub-box:hover .sub-x,.sub-x:focus-visible{opacity:1}
+.ic.cc.on{color:var(--accent);background:var(--sent)}
+.sub-vi.blur:not(.shown){filter:blur(6px);cursor:pointer}
 .pick-banner{position:fixed;top:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:8px 8px 8px 16px;
   background:var(--accent);color:var(--accent-fg);border-radius:999px;box-shadow:0 10px 30px var(--shadow);font-weight:600;font-size:14px;z-index:2147483647}
 .pick-banner .btn{background:var(--bg);color:var(--fg);border-color:transparent}
@@ -2030,8 +2371,6 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
       if (player.playing) play(player.cur);
     });
     ui.aaBtn = h('button', { class: 'ic aa', title: 'Tùy chọn hiển thị & luyện tập', onclick: toggleMenu }, 'Aa');
-    ui.prog = h('span', { class: 'prog', title: 'Câu hiện tại / tổng số câu' });
-    ui.time = h('span', { class: 'time' });
     ui.menu = h('div', { class: 'menu', hidden: true });
     const toolbar = h(
       'div',
@@ -2040,22 +2379,10 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
       ui.playBtn,
       iconBtn('next', 'Câu sau (→)', () => jumpSentence(1)),
       ui.repBtn,
+      (ui.ccBtn = iconBtn('cc', 'Phụ đề', toggleSubtitles, 'cc')),
       ui.speedSel,
       ui.aaBtn,
-      h('span', { class: 'meta' }, ui.prog, ui.time),
-      ui.menu,
-      (ui.pbar = h(
-        'div',
-        {
-          class: 'pbar',
-          title: 'Tiến độ đọc — bấm để nhảy tới vị trí đó',
-          onclick: (e) => {
-            const r = ui.pbar.getBoundingClientRect();
-            seekToFraction((e.clientX - r.left) / r.width);
-          },
-        },
-        (ui.pfill = h('div', { class: 'pfill' }))
-      ))
+      ui.menu
     );
 
     // tabs
@@ -2123,6 +2450,26 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
       header,
       toolbar,
       tabs,
+      (ui.shadowBar = h(
+        'div',
+        { class: 'shadow-bar', hidden: true, 'data-phase': 'idle', role: 'status', 'aria-live': 'polite' },
+        h(
+          'div',
+          { class: 'sb-row' },
+          h('span', { class: 'step listen' }, '🎧 Nghe'),
+          h('span', { class: 'arrow' }, '→'),
+          h('span', { class: 'step speak' }, '🎤 Nói theo'),
+          (ui.shDots = h('span', { class: 'dots' })),
+          h(
+            'span',
+            { class: 'sb-btns' },
+            h('button', { class: 'btn sm', title: 'Nghe lại câu này', onclick: replaySentence }, '↻ Nghe lại'),
+            h('button', { class: 'btn sm', title: 'Sang câu tiếp theo', onclick: () => jumpSentence(1) }, 'Câu tiếp ⏭')
+          )
+        ),
+        (ui.shMsg = h('div', { class: 'sb-msg' })),
+        h('div', { class: 'countdown' }, (ui.shCountFill = h('div', { class: 'fill' })))
+      )),
       (ui.offer = h(
         'div',
         { class: 'offer', hidden: true },
@@ -2143,10 +2490,42 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
       'div',
       { class: 'pill', hidden: true },
       ui.pillPlay,
+      (ui.pillCc = iconBtn('cc', 'Phụ đề', toggleSubtitles, 'cc')),
       h('button', { class: 'open', title: 'Mở lại Tuyewn Reader', onclick: () => setMinimized(false) }, brandIcon())
     );
 
-    root.append(ui.panel, ui.pill);
+    ui.subVi = h('div', { class: 'sub-vi', title: 'Bản dịch câu đang đọc' });
+    ui.subVi.addEventListener('click', () => ui.subVi.classList.add('shown')); // reveal when "hide translation" is on
+    ui.sub = h(
+      'div',
+      { class: 'subs', hidden: true },
+      h(
+        'div',
+        { class: 'sub-box' },
+        ui.subVi,
+        h('button', { class: 'sub-x', title: 'Ẩn phụ đề (bật lại bằng nút CC)', 'aria-label': 'Ẩn phụ đề', onclick: toggleSubtitles }, '×')
+      )
+    );
+    // reading timeline pinned on the page (YouTube-style controls), outside the panel
+    ui.tlPlay = h('button', { class: 'tl-btn', title: 'Phát / Tạm dừng', onclick: togglePlay }, icon('play'));
+    ui.time = h('span', { class: 'tl-time' });
+    ui.pfill = h('div', { class: 'tl-fill' });
+    ui.pbar = h(
+      'div',
+      {
+        class: 'tl-bar',
+        title: 'Tiến độ đọc — bấm để nhảy tới vị trí đó',
+        onclick: (e) => {
+          const r = ui.pbar.getBoundingClientRect();
+          seekToFraction((e.clientX - r.left) / r.width);
+        },
+      },
+      h('div', { class: 'tl-track' }, ui.pfill)
+    );
+    ui.prog = h('span', { class: 'tl-sent', title: 'Câu hiện tại / tổng số câu' });
+    // compact on purpose: play/pause, time, progress, sentence — the rest lives in the panel
+    ui.tl = h('div', { class: 'tl', hidden: true }, ui.tlPlay, ui.time, ui.pbar, ui.prog);
+    root.append(ui.panel, ui.pill, ui.sub, ui.tl);
 
     host.addEventListener('keydown', onPanelKey);
     applyTheme();
@@ -2172,6 +2551,7 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
     } else if (e.key === 'ArrowLeft') jumpSentence(-1);
     else if (e.key === 'ArrowRight') jumpSentence(1);
     else if (e.key === 'r' || e.key === 'R') toggleRepeat();
+    else if (e.key === 'c' || e.key === 'C') toggleSubtitles();
     else if (e.key === 'Escape') ui.menu.hidden = true;
   }
 
@@ -2256,6 +2636,7 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
     const visible = !ui.panel.hidden && ui.host.isConnected;
     // push the page aside unless the window is too small to show both (then the panel overlays)
     setPush(visible && settings.pushPage && innerWidth - w >= 300 ? w : 0);
+    positionSubtitle();
   }
 
   function setupResize() {
@@ -2315,7 +2696,21 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
     updateSheetVisibility();
   }
 
+  function replaySentence() {
+    if (!doc?.sentences.length) return;
+    const si = player.sentMarked >= 0 ? player.sentMarked : 0;
+    play(doc.sentences[si].first);
+  }
+
+  // show / hide the shadowing bar without restarting a running countdown
+  function syncShadowBar() {
+    if (!ui.shadowBar) return;
+    if (player.playing && settings.repeat) ui.shadowBar.hidden = settings.tab !== 'read';
+    else setShadowPhase('idle');
+  }
+
   function updateRepeatBtn() {
+    syncShadowBar();
     ui.repBtn.classList.toggle('on', settings.repeat);
     ui.repBadge.textContent = settings.repeatTimes ? String(settings.repeatTimes) : '∞';
     ui.repBtn.title = settings.repeat
@@ -2341,6 +2736,7 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
     const name = player.playing ? 'pause' : 'play';
     ui.playBtn?.replaceChildren(icon(name));
     ui.pillPlay?.replaceChildren(icon(name));
+    ui.tlPlay?.replaceChildren(icon(name));
     if (ui.readView) applyViewClasses(); // focus mode follows playback (panel + page)
     applyPageDim();
     // tick the elapsed / total clock every second while reading
@@ -2392,7 +2788,7 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
     ui.readView.className = [
       'view',
       'read-view',
-      settings.dimOthers && player.playing && 'focus',
+      settings.dimOthers && player.sentMarked >= 0 && 'focus',
       settings.bilingual && 'bilingual',
       settings.hideTrans && 'hide-trans',
       settings.showIPA && 'show-ipa',
@@ -2431,6 +2827,7 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
                 settings[key] = v;
                 saveSettings();
                 updateRepeatBtn();
+                updateSubtitle();
                 renderMenu();
               },
             },
@@ -2452,19 +2849,49 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
         },
         label
       );
+    const subSizeBtn = (d, label) =>
+      h(
+        'button',
+        {
+          class: 'btn',
+          onclick: () => {
+            settings.subSize = clamp(settings.subSize + d * 2, 13, 33);
+            saveSettings();
+            positionSubtitle();
+            renderMenu();
+          },
+        },
+        label
+      );
     ui.menuChips = h('div', { class: 'chips' });
     ui.menu.replaceChildren(
       h('h5', null, 'Hiển thị'),
       h('div', { class: 'opt fs' }, 'Cỡ chữ', fsBtn(-1, 'A−'), h('b', null, String(settings.fontSize)), fsBtn(1, 'A+')),
-      opt('Làm mờ các câu khác khi đang đọc (panel + trang)', 'dimOthers', applyPageDim),
+      opt('Làm mờ các câu chưa đọc / đã đọc (panel + trang)', 'dimOthers', applyPageDim),
       opt('Song ngữ: bản dịch dưới mọi câu', 'bilingual'),
       opt('Ẩn bản dịch — bấm vào để xem (tự đoán trước)', 'hideTrans'),
       opt('IPA dưới mỗi từ', 'showIPA'),
       opt('Nghĩa tiếng Việt dưới mỗi từ', 'showVI'),
+      h('h5', null, 'Phụ đề & timeline trên trang'),
+      opt('Phụ đề tiếng Việt kiểu YouTube (phím C / nút CC)', 'subtitles', updateSubtitle),
+      h(
+        'div',
+        { class: 'opt fs' },
+        'Cỡ chữ phụ đề',
+        subSizeBtn(-1, 'A−'),
+        h('b', null, String(settings.subSize)),
+        subSizeBtn(1, 'A+')
+      ),
+      h('div', { class: 'sub' }, 'Vị trí phụ đề'),
+      choice('subPos', ['bottom', 'top'], (v) => (v === 'top' ? 'Trên' : 'Dưới')),
+      h('div', { class: 'sub' }, 'Nền phụ đề'),
+      choice('subBg', ['solid', 'dim', 'none'], (v) => ({ solid: 'Đậm', dim: 'Mờ', none: 'Trong suốt' })[v]),
+      opt('Thanh timeline (thời gian đọc) ở cuối trang', 'pageTimeline', positionSubtitle),
       h('h5', null, 'Tô màu loại từ'),
       ui.menuChips,
       h('h5', null, 'Lặp câu — luyện nói theo (shadowing)'),
       opt('Bật lặp câu', 'repeat', updateRepeatBtn),
+      opt('Tiếng "bíp" khi đến lượt bạn nói', 'shadowBeep'),
       h('div', { class: 'sub' }, 'Nghe mỗi câu'),
       choice('repeatTimes', [1, 2, 3, 5, 0], (v) => (v ? `${v} lần` : '∞')),
       h('div', { class: 'sub' }, 'Khoảng nghỉ sau mỗi lần để bạn nói theo'),
@@ -2524,6 +2951,7 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
   }
 
   function fillTranslations() {
+    updateSubtitle();
     if (!doc) return;
     doc.sentences.forEach((s, i) => {
       if (!s.vnEl) return;
@@ -2998,6 +3426,7 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
   document.addEventListener('click', onPageWordClick, true);
   document.addEventListener('click', onPickClick, true);
   document.addEventListener('keydown', onPickKey, true);
+  window.addEventListener('scroll', onPageScrollForSub, { capture: true, passive: true });
 
   // ---------------------------------------------------------------------------
   // Entry points
@@ -3028,6 +3457,7 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
     renderRead();
     renderChips();
     updateTimeEstimate();
+    setShadowPhase('idle');
     if (settings.tab === 'vocab') renderVocab();
     highlightPageSelection();
     applyPageTagHighlights();
@@ -3048,6 +3478,7 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
     document.removeEventListener('click', onPageWordClick, true);
     document.removeEventListener('click', onPickClick, true);
     document.removeEventListener('keydown', onPickKey, true);
+    window.removeEventListener('scroll', onPageScrollForSub, { capture: true });
     endPick();
     removeEventListener('resize', applyDock);
     ui.host?.remove();

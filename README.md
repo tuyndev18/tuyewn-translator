@@ -13,7 +13,9 @@ và luyện nói theo từng câu — không cần rời khỏi trang.
 </div>
 
 <p align="center">
-  <img src="docs/screenshots/learning-mode.png" width="900" alt="Panel Tuyewn Reader bên cạnh bài viết: câu đang đọc, IPA và nghĩa tiếng Việt dưới mỗi từ, thẻ chi tiết từ">
+  <a href="docs/demo.mp4"><img src="docs/demo.gif" width="900" alt="Video giới thiệu Tuyewn Reader: đọc bài với giọng tự nhiên, highlight từng từ, phụ đề tiếng Việt, tra từ, luyện nói theo"></a>
+  <br>
+  <sub>▶ Video giới thiệu ~1 phút (không tiếng) — bấm vào để mở bản MP4 nét hơn</sub>
 </p>
 
 ---
@@ -24,44 +26,16 @@ và luyện nói theo từng câu — không cần rời khỏi trang.
 và đọc xong một đoạn dài vẫn không chắc mình hiểu đúng. Tuyewn Reader gom mọi thứ vào **một panel bên cạnh bài viết**:
 bôi đen một đoạn (hoặc đọc cả trang), bấm ▶ và vừa nghe, vừa nhìn, vừa tra — tất cả ở cùng một chỗ.
 
-## Ảnh minh họa
-
-<table>
-  <tr>
-    <td width="50%">
-      <img src="docs/screenshots/reading.png" alt="Giao diện tối, chế độ tập trung làm mờ các câu khác khi đang đọc">
-      <p align="center"><b>Giao diện tối & chế độ tập trung</b> — các câu khác mờ đi khi đang đọc</p>
-    </td>
-    <td width="50%">
-      <img src="docs/screenshots/vocabulary.png" alt="Tab Từ vựng: từ được gom theo loại, tô màu loại từ cả trên trang">
-      <p align="center"><b>Từ vựng theo loại từ</b> — tô màu danh từ, động từ, tính từ… ngay trên trang</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <img src="docs/screenshots/menu.png" alt="Menu Aa: cỡ chữ, song ngữ, ẩn bản dịch, tô màu loại từ, lặp câu">
-      <p align="center"><b>Menu Aa</b> — tuỳ chỉnh hiển thị và luyện nói theo</p>
-    </td>
-    <td width="50%">
-      <img src="docs/screenshots/pick-region.png" alt="Chọn vùng đọc: bấm điểm bắt đầu rồi điểm kết thúc trên trang">
-      <p align="center"><b>Chọn vùng đọc</b> — bấm điểm bắt đầu, rồi điểm kết thúc</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <img src="docs/screenshots/narrow-window.png" alt="Cửa sổ hẹp: panel tự thu gọn và đẩy trang sang trái">
-      <p align="center"><b>Cửa sổ hẹp</b> — panel tự thu gọn, không che nội dung</p>
-    </td>
-  </tr>
-</table>
-
 ## Tính năng chính
 
 ### 🎧 Nghe & theo dõi
-- **Giọng đọc tự nhiên** Anh-Mỹ / Anh-Anh (Microsoft Neural: Ava, Andrew, Emma, Brian, Sonia, Ryan…), tốc độ 0.5×–2×.
+- **Giọng đọc tự nhiên** Anh-Mỹ / Anh-Anh (Microsoft Neural: Andrew, Ava, Emma, Brian, Sonia, Ryan…), tốc độ 0.5×–2×.
+  Nếu dịch vụ giọng tự nhiên lỗi, tự chuyển sang giọng có sẵn của máy (ưu tiên Microsoft Mark / George) rồi thử lại sau.
 - **Highlight từng từ đang đọc** — chính xác theo mốc thời gian của giọng đọc, cả trên trang lẫn trong panel.
-- **Chế độ tập trung**: khi đang phát, các câu khác mờ đi để mắt luôn theo đúng câu đang nghe.
-- **Thời gian đọc** kiểu trình phát nhạc (`đã đọc / tổng`), thanh tiến trình bấm để nhảy tới vị trí bất kỳ.
+- **Chế độ tập trung**: câu chưa đọc mờ hẳn, câu đã đọc mờ nhẹ — mắt luôn theo đúng câu đang nghe, cả trên trang lẫn trong panel.
+- **Phụ đề tiếng Việt kiểu YouTube** ngay trên trang (bật/tắt bằng nút CC hoặc phím `C`, chỉnh cỡ chữ, vị trí, nền);
+  phụ đề tự tránh, không che câu đang đọc.
+- **Thanh thời gian ghim cuối trang** kiểu trình phát (`đã đọc / tổng`, số câu), bấm vào thanh để nhảy tới vị trí bất kỳ.
   Ước lượng tự học tốc độ thực tế của từng giọng và thay đổi theo tốc độ phát.
 
 ### 📖 Hiểu nội dung
@@ -69,11 +43,10 @@ bôi đen một đoạn (hoặc đọc cả trang), bấm ▶ và vừa nghe, v�
 - **Ẩn bản dịch** — làm mờ, bấm vào mới hiện — để tự đoán nghĩa trước khi xem.
 - **Tóm tắt đoạn văn** bằng tiếng Anh và tiếng Việt (Gemini).
 - **Đọc cả trang**: tự tìm phần nội dung chính, bỏ qua menu, quảng cáo, chân trang, khối code.
+- **Chỉ đọc chữ thuần**: bỏ qua link/URL, email, code, emoji, hình, công thức và số chú thích.
 - **Chọn điểm bắt đầu → kết thúc**: bấm hai lần trên trang để chọn đúng vùng muốn đọc.
 
 ### 🔤 Từ vựng & phát âm
-<img src="docs/screenshots/word-detail.png" width="440" align="right" alt="Thẻ chi tiết từ: IPA US/UK, từng âm, nghĩa tiếng Việt và các trang hướng dẫn phát âm">
-
 - Bấm vào một từ để mở **thẻ chi tiết**:
   - IPA **Anh-Mỹ** (🔊 đỏ) và **Anh-Anh** (🔊 xanh) — bấm loa để nghe đúng giọng đó;
   - **tách từng âm**: rê chuột để xem gợi ý phát âm bằng tiếng Việt và từ ví dụ, bấm để xem video hướng dẫn âm đó;
@@ -83,10 +56,10 @@ bôi đen một đoạn (hoặc đọc cả trang), bấm ▶ và vừa nghe, v�
 - Tùy chọn hiện **IPA** và **nghĩa tiếng Việt dưới mỗi từ**, **tô màu theo loại từ** (danh từ, động từ, tính từ…).
 - Tab **Từ vựng** gom từ theo loại, copy ra Excel / Google Sheets / Anki.
 
-<br clear="right">
-
 ### 🗣️ Luyện nói (shadowing)
 - **Lặp câu**: nghe mỗi câu 1–5 lần (hoặc lặp mãi), sau mỗi lần có khoảng nghỉ để bạn nói theo.
+- Thanh hướng dẫn **🎧 Nghe → 🎤 Đến lượt bạn**: đếm số lần, đếm ngược thời gian nói, tiếng "bíp" báo đến lượt,
+  câu cần nói được tô cam cả trên trang; nút **Nghe lại** / **Câu tiếp**.
 
 ### 🖥️ Giao diện
 - Panel bám cạnh phải, **đẩy nội dung trang sang trái** để không che bài; kéo cạnh trái để đổi độ rộng,
@@ -126,6 +99,7 @@ bôi đen một đoạn (hoặc đọc cả trang), bấm ▶ và vừa nghe, v�
 | `Space` | Phát / tạm dừng (khi đang ở trong panel) |
 | `←` `→` | Câu trước / câu sau |
 | `R` | Bật / tắt lặp câu |
+| `C` | Bật / tắt phụ đề tiếng Việt |
 | Double-click một từ | Đọc từ vị trí đó |
 | `Esc` | Huỷ chọn vùng, đóng menu |
 
