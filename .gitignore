@@ -10,3 +10,6 @@ desktop.ini
 
 # Node (if tooling is added later)
 node_modules/
+
+# 4K demo video: kept locally, too big for the repo
+docs/demo-4k.mp4

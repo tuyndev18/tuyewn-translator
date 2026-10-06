@@ -1422,6 +1422,8 @@
           const tok = tokenAt(base + doc.text.slice(base).indexOf(say) + idx, from, to);
           player.timers.push(setTimeout(() => live() && setCurrent(tok), w.at / 1));
         }
+        // lets the page (e.g. a demo recorder) know what is being spoken and when
+        document.dispatchEvent(new CustomEvent('tuyewn-reader:speak', { detail: JSON.stringify({ text: say, voice: neuralVoice(), rate: settings.rate }) }));
         playBuffer(buffer, () => {
           if (live()) afterChunk(from, to, gen);
         });
@@ -1529,8 +1531,13 @@
     const gen = player.gen;
     if (useNeural()) {
       audioCtx();
-      synth(text, neuralVoice(acc), Math.min(settings.rate, 1)).then(
-        ({ buffer }) => gen === player.gen && playBuffer(buffer, null),
+      const rate = Math.min(settings.rate, 1);
+      synth(text, neuralVoice(acc), rate).then(
+        ({ buffer }) => {
+          if (gen !== player.gen) return;
+          document.dispatchEvent(new CustomEvent('tuyewn-reader:speak', { detail: JSON.stringify({ text, voice: neuralVoice(acc), rate }) }));
+          playBuffer(buffer, null);
+        },
         () => gen === player.gen && sayBrowser(text, acc)
       );
       return;
@@ -1646,6 +1653,7 @@
     const done = shadowCount(); // finished listens of the current sentence
     const round = phase === 'speak' ? done : Math.min(done + 1, times);
     bar.dataset.phase = phase;
+    document.dispatchEvent(new CustomEvent('tuyewn-reader:shadow', { detail: JSON.stringify({ phase }) }));
     ui.shDots.replaceChildren(
       ...(times === Infinity
         ? [h('span', { class: 'n' }, `lần ${Math.max(round, 1)}`)]
