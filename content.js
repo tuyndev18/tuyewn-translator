@@ -1761,7 +1761,7 @@
       }
       if (rect.height && (rect.top < topLimit || rect.bottom > bottomLimit)) {
         player.lastScroll = performance.now();
-        wr.startContainer.parentElement?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        scrollReadingPoint(wr.startContainer, rect.top);
       }
     }
   }
@@ -1799,10 +1799,26 @@
   // (the English sentence itself is already highlighted on the page), centred at the bottom
   // ---------------------------------------------------------------------------
 
-  const sub = { sent: -1, flip: false, raf: 0 };
+  const sub = { sent: -1, raf: 0 };
 
-  // Keep the subtitle off the sentence being read: preferred edge first, the other edge if that
-  // covers it, and back to the preferred edge if both would (a very tall sentence)
+  // Bring a reading point (viewport y) to ~30% from the top — of the page, or of the scrollable
+  // box it sits in (articles inside app-like layouts)
+  function scrollReadingPoint(node, y) {
+    let el = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
+    for (; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+      const oy = getComputedStyle(el).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 4) {
+        const box = el.getBoundingClientRect();
+        el.scrollBy({ top: y - box.top - el.clientHeight * 0.3, behavior: 'smooth' });
+        return;
+      }
+    }
+    window.scrollBy({ top: y - innerHeight * 0.3, behavior: 'smooth' });
+  }
+
+  // The subtitle never jumps around. If it would cover the sentence being read: while playing,
+  // the page scrolls that sentence up into the reading zone; otherwise (the user scrolled it
+  // there) the subtitle turns see-through so the text underneath stays readable.
   function avoidSubtitleOverlap() {
     const box = ui.sub?.firstChild;
     const s = doc?.sentences[player.sentMarked];
@@ -1811,22 +1827,14 @@
     const rects = s.pageRange ? [...s.pageRange.getClientRects()] : [];
     if (!rects.length) return;
     const GAP = 12; // keep some breathing room between the sentence and the subtitle
-    const covers = () => {
-      const b = box.getBoundingClientRect();
-      return rects.some((r) => r.bottom > b.top - GAP && r.top < b.bottom + GAP && r.right > b.left && r.left < b.right);
-    };
-    const was = sub.flip;
-    sub.flip = false;
-    positionSubtitle();
-    if (covers()) {
-      sub.flip = true;
-      positionSubtitle();
-      if (covers()) {
-        sub.flip = false;
-        positionSubtitle();
-      }
+    const b = box.getBoundingClientRect();
+    const covered = rects.some((r) => r.bottom > b.top - GAP && r.top < b.bottom + GAP && r.right > b.left && r.left < b.right);
+    if (covered && player.playing && performance.now() - player.lastScroll > 800) {
+      player.lastScroll = performance.now();
+      scrollReadingPoint(s.pageRange.startContainer, Math.min(...rects.map((r) => r.top)));
+      return; // re-checked on the scroll events that follow
     }
-    if (was !== sub.flip) ui.sub.classList.add('moved');
+    ui.sub.classList.toggle('see-through', covered);
   }
 
   function onPageScrollForSub() {
@@ -1890,8 +1898,7 @@
     ui.tl.style.left = `${Math.max(12, (areaW - tlW) / 2)}px`;
     ui.sub.style.left = '0px';
     ui.sub.style.width = `${areaW}px`;
-    // the subtitle moves to the other edge while it would cover the sentence being read
-    const top = (settings.subPos === 'top') !== sub.flip;
+    const top = settings.subPos === 'top';
     ui.sub.style.top = top ? '16px' : 'auto';
     ui.sub.style.bottom = top ? 'auto' : `${showTl ? 50 : 20}px`;
     ui.sub.style.setProperty('--sub-size', `${settings.subSize}px`);
@@ -2250,7 +2257,10 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .subs[hidden]{display:none}
 .sub-box{max-width:min(860px,88%);padding:8px 16px 10px;border-radius:8px;background:rgba(8,12,18,.82);color:#fff;text-align:center;
   font:500 15px/1.45 ${FONT};box-shadow:0 6px 24px rgba(0,0,0,.25);pointer-events:auto}
-.sub-box{position:relative}
+.sub-box{position:relative;transition:opacity .25s}
+/* the sentence being read is underneath (user scrolled it there): let it show through */
+.subs.see-through .sub-box{opacity:.18}
+.subs.see-through .sub-box:hover{opacity:1}
 .sub-vi{color:#fff;font-size:var(--sub-size,16px);font-weight:600;line-height:1.4;text-shadow:0 1px 2px rgba(0,0,0,.6)}
 .subs[data-bg="dim"] .sub-box{background:rgba(8,12,18,.5)}
 .subs[data-bg="none"] .sub-box{background:transparent;box-shadow:none}
