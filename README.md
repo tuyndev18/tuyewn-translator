@@ -35,7 +35,7 @@ Cách dùng đơn giản: bôi đen đoạn văn, chuột phải, chọn Tuyewn 
 - Bản dịch tiếng Việt theo từng câu. Có thể ẩn bản dịch để tự đoán nghĩa trước, bấm vào mới hiện.
 - Tóm tắt đoạn văn bằng tiếng Anh và tiếng Việt qua Gemini (cần API key miễn phí).
 - Đọc cả trang: tự tìm phần nội dung chính, bỏ menu, quảng cáo, footer.
-- Chỉ đọc chữ: bỏ qua link, email, code, emoji, hình và số chú thích.
+- Chỉ đọc chữ: bỏ qua email, code, emoji, hình, số chú thích và link. Link đứng riêng (menu, "Read more", danh sách bài, tag) hoặc link là địa chỉ web thì bỏ; link nằm giữa câu vẫn đọc để câu không bị cụt. Muốn bỏ hết thì bật "Bỏ qua cả link nằm giữa câu" trong menu Aa.
 - Muốn đọc một vùng cụ thể thì chọn điểm bắt đầu và kết thúc bằng hai cú click.
 
 **Từ vựng và phát âm**

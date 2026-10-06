@@ -110,6 +110,7 @@
     pageTimeline: true, // reading timeline pinned at the bottom of the page
     theme: '', // light | dark ('' = follow the system the first time, then remembered)
     dimOthers: true, // fade the other sentences while reading
+    skipAllLinks: false, // also drop links that sit inside a sentence
     width: 420,
     pushPage: true,
     defaultsVersion: 0, // bumped when a default is changed for existing installs
@@ -226,6 +227,8 @@
     /\b(?:https?:\/\/|ftp:\/\/|www\.)[^\s<>"'`]*[^\s<>"'`.,;:!?)\]]/gi,
     /\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b/g,
     /\p{Extended_Pictographic}️?/gu,
+    // separators left dangling at the end of a line by dropped links ("Tags: go, sched" → "Tags: ,")
+    /(?:[ \t]*[,;|•·]|[ \t]+[:–—-])+[ \t]*(?=\n|$)/g,
   ];
 
   // Drop link / e-mail / emoji characters from a capture, keeping the char→DOM map aligned
@@ -266,11 +269,45 @@
     return out ? { text: out, map: { nodes: n2, offs: o2 } } : null;
   }
 
+  // Links are not read when they stand on their own (menus, "Read more", related posts, tags, link lists),
+  // show an address ("github.com/…") or a marker ("[edit]", "[1]"). A link inside a sentence is read as part
+  // of it, unless settings.skipAllLinks — then every link is dropped.
+  const URLISH_RE = /^(?:https?:|ftp:|www\.|\/\S)|^[\w-]+(?:\.[\w-]+)*\.(?:com|org|net|io|dev|edu|gov|co|vn|app|ai|me|info|xyz|uk|us|de|fr|jp|tv|ly|gg)(?:[/:?#]\S*)?$/i;
+  function linkToSkip(a, nonLinkChars) {
+    if (settings.skipAllLinks) return true;
+    const text = a.textContent.trim();
+    if (!text) return false;
+    if (URLISH_RE.test(text) || FOOTNOTE_RE.test(text) || /^\[.*\]$/.test(text)) return true;
+    // a heading made of a link is still the title
+    const block = blockOf(a.parentElement);
+    if (!block || /^H[1-6]$/.test(block.tagName)) return false;
+    return nonLinkChars(block) < 12;
+  }
+
+  // Letters in a block that are not inside a link
+  function nonLinkLetters(block) {
+    let n = 0;
+    const w = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+    for (let t = w.nextNode(); t; t = w.nextNode()) if (!t.parentElement.closest('a')) n += (t.data.match(/\p{L}/gu) || []).length;
+    return n;
+  }
+
   // Range → plain text + char→DOM map (for page highlighting)
-  function captureRange(range, { skipChrome = false, maxChars = Infinity } = {}) {
+  function captureRange(range, opts = {}) {
+    // a selection made only of link text is read as is
+    return captureRangeWith(range, opts, false) || captureRangeWith(range, opts, true);
+  }
+
+  function captureRangeWith(range, { skipChrome = false, maxChars = Infinity } = {}, keepLinks) {
     const common = range.commonAncestorContainer;
     const root = common.nodeType === Node.ELEMENT_NODE ? common : common.parentNode;
     if (!root) return null;
+    const insideLink = !!root.closest('a');
+    const letters = new Map();
+    const nonLinkChars = (block) => {
+      if (!letters.has(block)) letters.set(block, nonLinkLetters(block));
+      return letters.get(block);
+    };
 
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
       acceptNode(n) {
@@ -281,6 +318,7 @@
           if (/^(CODE|KBD|SAMP|TT)$/.test(n.tagName) && CODE_LIKE_RE.test(n.textContent)) return NodeFilter.FILTER_REJECT;
           // footnote markers ("feedback.¹⁰⁷ It…", "[12]") break sentence splitting and get read aloud
           if (n.tagName === 'SUP' && FOOTNOTE_RE.test(n.textContent)) return NodeFilter.FILTER_REJECT;
+          if (!keepLinks && !insideLink && n.tagName === 'A' && linkToSkip(n, nonLinkChars)) return NodeFilter.FILTER_REJECT;
           if (skipChrome && n !== root && n.matches(PAGE_CHROME)) return NodeFilter.FILTER_REJECT;
           if (n.checkVisibility && !n.checkVisibility()) return NodeFilter.FILTER_REJECT;
           return n.tagName === 'BR' ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
@@ -2915,6 +2953,7 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
       h('div', { class: 'sub' }, 'Khoảng nghỉ sau mỗi lần để bạn nói theo'),
       choice('shadowGap', [0, 0.5, 1, 1.5, 2], (v) => (v ? `${v}× câu` : 'Không')),
       h('h5', null, 'Nội dung đọc'),
+      opt('Bỏ qua cả link nằm giữa câu (áp dụng từ lần đọc sau)', 'skipAllLinks'),
       STANDALONE
         ? null
         : h(
