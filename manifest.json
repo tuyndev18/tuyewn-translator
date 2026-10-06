@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "Tuyewn Reader",
+  "version": "1.0.0",
+  "description": "Bôi đen văn bản tiếng Anh → chuột phải → đọc to giọng US/UK, highlight từng từ, IPA, loại từ, nghĩa tiếng Việt, tóm tắt bằng Gemini.",
+  "minimum_chrome_version": "116",
+  "permissions": ["contextMenus", "scripting", "activeTab", "storage", "offscreen", "declarativeNetRequestWithHostAccess"],
+  "host_permissions": [
+    "*://speech.platform.bing.com/*",
+    "wss://speech.platform.bing.com/*",
+    "https://en.wiktionary.org/*",
+    "https://translate.googleapis.com/*",
+    "https://api.mymemory.translated.net/*",
+    "https://generativelanguage.googleapis.com/*"
+  ],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "web_accessible_resources": [{
+    "resources": [
+      "icons/icon-16.png",
+      "icons/icon-32.png",
+      "icons/icon-48.png",
+      "icons/icon-128.png"
+    ],
+    "matches": ["<all_urls>"]
+  }],
+  "action": { "default_title": "Tuyewn Reader — đọc đoạn đang bôi đen hoặc cả trang" },
+  "background": { "service_worker": "background.js" },
+  "declarative_net_request": {
+    "rule_resources": [{ "id": "edge_tts", "enabled": true, "path": "rules.json" }]
+  },
+  "commands": {
+    "read-selection": {
+      "suggested_key": { "default": "Alt+Shift+E" },
+      "description": "Đọc đoạn đang bôi đen (không bôi đen: đọc cả trang)"
+    }
+  }
+}

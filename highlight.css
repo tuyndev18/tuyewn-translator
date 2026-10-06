@@ -1,0 +1,25 @@
+/* Injected into the page. Paints CSS Custom Highlight API ranges (no DOM mutation). */
+::highlight(tuyewn-selection) { background-color: rgba(255, 213, 79, 0.20); }
+::highlight(tuyewn-sent) { background-color: rgba(255, 213, 79, 0.38); }
+::highlight(tuyewn-word) {
+  background-color: #ffd400;
+  color: #000;
+  text-decoration: underline 3px #ff6d00;
+  text-underline-offset: 3px;
+}
+/* focus mode: the other sentences of the passage fade while reading */
+::highlight(tuyewn-dim) { color: rgba(128, 128, 128, 0.55); }
+/* start point while picking a reading region */
+::highlight(tuyewn-mark) { background-color: #ff6d00; color: #fff; }
+
+::highlight(tuyewn-tag-noun) { background-color: rgba(59, 130, 246, 0.25); }
+::highlight(tuyewn-tag-verb) { background-color: rgba(239, 68, 68, 0.25); }
+::highlight(tuyewn-tag-adj)  { background-color: rgba(34, 197, 94, 0.25); }
+::highlight(tuyewn-tag-adv)  { background-color: rgba(245, 158, 11, 0.28); }
+::highlight(tuyewn-tag-pron) { background-color: rgba(168, 85, 247, 0.25); }
+::highlight(tuyewn-tag-prep) { background-color: rgba(6, 182, 212, 0.25); }
+::highlight(tuyewn-tag-conj) { background-color: rgba(236, 72, 153, 0.25); }
+::highlight(tuyewn-tag-det)  { background-color: rgba(100, 116, 139, 0.28); }
+::highlight(tuyewn-tag-num)  { background-color: rgba(132, 204, 22, 0.28); }
+::highlight(tuyewn-tag-intj) { background-color: rgba(249, 115, 22, 0.28); }
+::highlight(tuyewn-tag-other){ background-color: rgba(156, 163, 175, 0.28); }
