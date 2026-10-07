@@ -22,8 +22,8 @@ async function createMenus() {
   const keys = await shortcuts().catch(() => ({}));
   const withKey = (title, cmd) => (keys[cmd] ? `${title}   (${keys[cmd]})` : title);
   await chrome.contextMenus.removeAll();
-  chrome.contextMenus.create({ id: MENU_LOOKUP, title: withKey('Tuyewn Reader: tra từ', 'lookup-selection'), contexts: ['selection'] });
-  chrome.contextMenus.create({ id: MENU_ID, title: withKey('Tuyewn Reader: đọc', 'read-selection'), contexts: ['selection'] });
+  chrome.contextMenus.create({ id: MENU_LOOKUP, title: withKey('Tuyewn Reader: tra từ', 'lookup'), contexts: ['selection'] });
+  chrome.contextMenus.create({ id: MENU_ID, title: withKey('Tuyewn Reader: đọc', 'read'), contexts: ['selection'] });
   chrome.contextMenus.create({ id: MENU_PAGE, title: 'Tuyewn Reader: đọc cả trang', contexts: ['page'] });
   chrome.contextMenus.create({ id: MENU_PICK, title: 'Tuyewn Reader: chọn điểm bắt đầu → kết thúc', contexts: ['page', 'selection'] });
 }
@@ -39,11 +39,11 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   else if (info.menuItemId === MENU_PICK) openReader(tab, frameId, '', 'pick');
 });
 
-// Toolbar icon and Alt+Shift+E: the selection if there is one, otherwise the whole page
+// Toolbar icon and Alt+R: the selection if there is one, otherwise the whole page
 chrome.action.onClicked.addListener((tab) => openReader(tab, 0, '', 'auto'));
 chrome.commands.onCommand.addListener((command, tab) => {
-  if (command === 'read-selection' && tab) openReader(tab, 0, '', 'auto');
-  else if (command === 'lookup-selection' && tab) openReader(tab, 0, '', 'lookup');
+  if (command === 'read' && tab) openReader(tab, 0, '', 'auto');
+  else if (command === 'lookup' && tab) openReader(tab, 0, '', 'lookup');
 });
 
 async function openReader(tab, frameId, selectionText, mode = 'selection') {

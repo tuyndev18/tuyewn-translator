@@ -82,8 +82,8 @@ Phím tắt:
 
 | Phím | Tác dụng |
 |---|---|
-| `Alt+Shift+E` | Đọc đoạn đang bôi đen, không bôi đen thì đọc cả trang |
-| `Alt+Shift+D` | Tra từ / dịch đoạn đang bôi đen (thẻ hiện cạnh chữ) |
+| `Alt+R` | Đọc đoạn đang bôi đen, không bôi đen thì đọc cả trang |
+| `Alt+T` | Tra từ / dịch đoạn đang bôi đen (thẻ hiện cạnh chữ) |
 | `1` / `2` | Trong thẻ tra từ: nghe giọng Mỹ / giọng Anh |
 | `Space` | Phát / tạm dừng |
 | `←` / `→` | Câu trước / câu sau |

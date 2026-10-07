@@ -2154,7 +2154,7 @@
       ];
     }
     const kbd = (k) => h('kbd', null, k);
-    const quick = shortcutKeys?.['lookup-selection'];
+    const quick = shortcutKeys?.lookup;
     const help = h(
       'div',
       { class: 'tip-ft tip-keys' },
@@ -3923,7 +3923,7 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
       ),
 
       h('h4', null, 'Phím tắt trong panel'),
-      h('div', { class: 'hint' }, 'Space: phát/tạm dừng · ← →: câu trước/sau · R: bật/tắt lặp câu · double-click một từ: đọc từ đó · Alt+Shift+E: đọc đoạn đang bôi đen'),
+      h('div', { class: 'hint' }, 'Space: phát/tạm dừng · ← →: câu trước/sau · R: bật/tắt lặp câu · double-click một từ: đọc từ đó · Alt+R: đọc đoạn đang bôi đen · Alt+T: tra từ đang bôi đen'),
 
       h('h4', null, 'Cache'),
       h(

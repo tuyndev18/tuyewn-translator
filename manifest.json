@@ -34,12 +34,12 @@
     "rule_resources": [{ "id": "edge_tts", "enabled": true, "path": "rules.json" }]
   },
   "commands": {
-    "read-selection": {
-      "suggested_key": { "default": "Alt+Shift+E" },
+    "read": {
+      "suggested_key": { "default": "Alt+R" },
       "description": "Đọc đoạn đang bôi đen (không bôi đen: đọc cả trang)"
     },
-    "lookup-selection": {
-      "suggested_key": { "default": "Alt+Shift+D" },
+    "lookup": {
+      "suggested_key": { "default": "Alt+T" },
       "description": "Tra từ / dịch đoạn đang bôi đen (thẻ ngay cạnh chữ)"
     }
   }
