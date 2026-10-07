@@ -12,6 +12,13 @@
 ::highlight(tuyewn-dim-read) { color: rgba(128, 128, 128, 0.72); } /* already read */
 /* shadowing: the sentence the learner should repeat now */
 ::highlight(tuyewn-speak) { background-color: rgba(255, 109, 0, 0.28); }
+/* the word / phrase looked up from the context menu, while its card is open */
+::highlight(tuyewn-lookup) {
+  background-color: #ffd400;
+  color: #000;
+  text-decoration: underline 3px #ff6d00;
+  text-underline-offset: 3px;
+}
 /* start point while picking a reading region */
 ::highlight(tuyewn-mark) { background-color: #ff6d00; color: #fff; }
 

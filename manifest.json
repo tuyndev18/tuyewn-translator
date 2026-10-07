@@ -37,6 +37,10 @@
     "read-selection": {
       "suggested_key": { "default": "Alt+Shift+E" },
       "description": "Đọc đoạn đang bôi đen (không bôi đen: đọc cả trang)"
+    },
+    "lookup-selection": {
+      "suggested_key": { "default": "Alt+Shift+D" },
+      "description": "Tra từ / dịch đoạn đang bôi đen (thẻ ngay cạnh chữ)"
     }
   }
 }

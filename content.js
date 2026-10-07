@@ -111,6 +111,8 @@
     theme: '', // light | dark ('' = follow the system the first time, then remembered)
     dimOthers: true, // fade the other sentences while reading
     skipAllLinks: false, // also drop links that sit inside a sentence
+    hoverCard: true, // quick-look card when hovering a word of the passage on the page
+    viMark: true, // mark the current word's meaning in the sentence translation (best effort)
     width: 420,
     pushPage: true,
     defaultsVersion: 0, // bumped when a default is changed for existing installs
@@ -164,6 +166,7 @@
   let viSent = []; // sentence index → Vietnamese translation
   let transProvider = 'Google Translate';
   let dictTimer = 0;
+  let detailWaiting = null; // word whose Vietnamese meanings are scheduled or being fetched
   let sumState = { state: 'idle', data: null, error: '' };
   let gemini = { hasKey: false, keyHint: '', model: '', effective: '', models: [] }; // model '' = automatic
   const send = (msg) => chrome.runtime.sendMessage(msg).catch((err) => ({ error: err.message }));
@@ -453,6 +456,8 @@
     setMinimized(false);
     stop();
     clearPageHighlights();
+    hideTip();
+    setLookupCursor(null);
     pick.step = 1;
     pick.start = null;
     document.documentElement.style.setProperty('cursor', 'crosshair', 'important');
@@ -686,6 +691,7 @@
     updateInlineVi();
     if (settings.tab === 'vocab') renderVocab();
     if (cardTok) showCard(cardTok);
+    markViWord();
   }
 
   // ---------------------------------------------------------------------------
@@ -868,11 +874,19 @@
   function scheduleDetail(t) {
     clearTimeout(dictTimer);
     if (!t?.key || viDict.has(t.key)) return;
+    detailWaiting = t.key;
     dictTimer = setTimeout(async () => {
       await fetchDetail(t.key);
+      if (detailWaiting === t.key) detailWaiting = null;
       if (cardTok?.key === t.key) showCard(cardTok);
+      if (tip.tok?.key === t.key) showTip(tip.tok);
+      markViWord(); // more meanings to find in the sentence translation
     }, player.playing ? 900 : 150);
   }
+
+  // the word's meanings are on their way (shown as a spinner instead of stale or empty details)
+  const detailLoading = (t) => !!t?.key && (detailWaiting === t.key || viDict.get(t.key) === null);
+  const loadingLine = (text) => h('div', { class: 'loading-line' }, h('span', { class: 'spin' }), text);
 
   async function fetchDetail(key) {
     if (viDict.has(key)) return;
@@ -1171,7 +1185,6 @@
     player.sentStartAt = 0;
     player.rep = { sent: -1, count: 0 };
     if (useNeural()) audioCtx(); // unlock audio inside the click gesture
-    sheetOpen = false;
     // show the new position right away — a natural voice may take a moment to synthesize it
     if (player.cur !== from) setCurrent(from);
     updatePlayBtn();
@@ -1640,6 +1653,112 @@
     }
     showCard(t);
     highlightPage(t);
+    markViWord();
+  }
+
+  // --- the Vietnamese counterpart of the current word, best effort ---------------------------
+  // Sentences are translated as a whole, so there is no word alignment. With Chrome's on-device
+  // translator the sentence is translated again with the word in brackets ("… [games] …" →
+  // "… [trò chơi] …"), and the bracketed part is looked for in the shown translation. Without it,
+  // a content word's dictionary meanings are looked for instead. Nothing is marked when not found.
+  const MARKABLE_TAGS = new Set(['noun', 'verb', 'adj', 'adv', 'num']);
+
+  function projectWord(t) {
+    doc.viProj ??= new Map();
+    if (doc.viProj.has(t.i)) return;
+    const tr = local.translator;
+    if (!tr) return;
+    const forDoc = doc;
+    const s = doc.sentences[t.sent];
+    const src = sentText(t.sent);
+    const a = t.start - s.start;
+    const b = t.end - s.start;
+    doc.viProj.set(t.i, null); // pending
+    tr.translate(`${src.slice(0, a)}[${src.slice(a, b)}]${src.slice(b)}`)
+      .then((v) => {
+        const i = v.indexOf('[');
+        const j = v.indexOf(']', i + 1);
+        const span = i >= 0 && j > i ? v.slice(i + 1, j).replace(/^[\s\p{P}]+|[\s\p{P}]+$/gu, '') : '';
+        forDoc.viProj.set(t.i, span ? { span, rel: i / v.length } : { span: '' });
+      })
+      .catch(() => forDoc.viProj.set(t.i, { span: '' }))
+      .finally(() => doc === forDoc && doc.tokens[player.cur] === t && markViWord());
+  }
+
+  // The best whole-syllable occurrence of any candidate in text, preferring longer ones
+  // and those near the expected relative position
+  function findSpan(text, candidates, rel) {
+    const low = viNorm(text);
+    let best = null;
+    for (const c of candidates) {
+      for (let i = low.indexOf(c); i >= 0 && c; i = low.indexOf(c, i + 1)) {
+        if (isWordChar(low[i - 1]) || isWordChar(low[i + c.length])) continue;
+        const score = c.length - Math.abs(i / low.length - rel) * 12;
+        if (!best || score > best.score) best = { start: i, end: i + c.length, score };
+      }
+    }
+    return best;
+  }
+  const VI_FILLERS = new Set(['sự', 'việc', 'các', 'những', 'cái', 'một', 'được', 'bị', 'sẽ', 'đã', 'đang']);
+  const viNorm = (s) => String(s || '').normalize('NFC').toLocaleLowerCase('vi');
+  const isWordChar = (ch) => !!ch && /[\p{L}\p{N}]/u.test(ch);
+
+  function viCandidates(t) {
+    const out = new Set();
+    const add = (s) => {
+      for (const part of viNorm(s).replace(/\(.*?\)/g, '').split(/[,;/]|\s+hoặc\s+/)) {
+        const words = part.trim().split(/\s+/).filter(Boolean);
+        // "sự cài đặt" also as "cài đặt"
+        while (words.length > 1 && VI_FILLERS.has(words[0])) {
+          out.add(words.join(' '));
+          words.shift();
+        }
+        const v = words.join(' ');
+        if (v.length >= 2 && !VI_FILLERS.has(v)) out.add(v);
+      }
+    };
+    for (const key of new Set([t.key, t.lemma].filter(Boolean))) {
+      add(viWord.get(key));
+      const dict = viDict.get(key);
+      add(dict?.trans);
+      for (const p of dict?.pos || []) p.terms.slice(0, 8).forEach(add);
+    }
+    return [...out];
+  }
+
+  function viSpan(t, text) {
+    if (!t?.key || !text) return null;
+    if (local.translator) {
+      const p = doc.viProj?.get(t.i);
+      if (p === undefined) projectWord(t);
+      return p?.span ? findSpan(text, [viNorm(p.span)], p.rel) : null;
+    }
+    if (!MARKABLE_TAGS.has(t.tag)) return null;
+    const s = doc.sentences[t.sent];
+    return findSpan(text, viCandidates(t), (t.start - s.start) / Math.max(1, s.end - s.start));
+  }
+
+  function renderVi(el, text, span) {
+    if (!span) el.textContent = text;
+    else el.replaceChildren(text.slice(0, span.start), h('mark', { class: 'vh' }, text.slice(span.start, span.end)), text.slice(span.end));
+  }
+
+  let viMarkedSent = -1;
+  function markViWord() {
+    if (!doc) return;
+    const t = doc.tokens[player.cur];
+    const si = t ? t.sent : -1;
+    if (viMarkedSent >= 0 && viMarkedSent !== si) {
+      const prev = doc.sentences[viMarkedSent];
+      if (prev?.vnEl) prev.vnEl.textContent = viSent[viMarkedSent] || '';
+    }
+    viMarkedSent = si;
+    if (si < 0) return;
+    const text = (viSent[si] || '').normalize('NFC');
+    const span = settings.viMark ? viSpan(t, text) : null;
+    const s = doc.sentences[si];
+    if (s.vnEl) renderVi(s.vnEl, text, span);
+    if (ui.subVi && sub.sent === si) renderVi(ui.subVi, text, span);
   }
 
   function setShadow(si, label) {
@@ -1764,6 +1883,309 @@
     return null;
   }
 
+  // --- quick look: hovering a word of the passage (while a sentence is in focus) shows its card ---
+
+  const tip = { tok: null, showTimer: 0, hideTimer: 0, raf: 0, x: 0, y: 0 };
+
+  // DOM caret → index in doc.text, through a lazily built node → char indexes map
+  function pageCharIndex(node, offset) {
+    const m = doc.map;
+    if (!m.byNode) {
+      m.byNode = new Map();
+      m.nodes.forEach((n, i) => {
+        if (!n) return;
+        if (!m.byNode.has(n)) m.byNode.set(n, []);
+        m.byNode.get(n).push(i);
+      });
+    }
+    const list = m.byNode.get(node);
+    if (!list) return -1;
+    return list.find((i) => m.offs[i] === offset) ?? list.find((i) => m.offs[i] === offset - 1) ?? -1;
+  }
+
+  function hoverToken(x, y) {
+    const c = caretAt(x, y);
+    if (!c || c.node.nodeType !== Node.TEXT_NODE) return null;
+    const ci = pageCharIndex(c.node, c.offset);
+    if (ci < 0) return null;
+    let lo = 0;
+    let hi = doc.tokens.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      const t = doc.tokens[mid];
+      if (ci < t.start) hi = mid - 1;
+      else if (ci >= t.end) lo = mid + 1;
+      else return t.key && rangeContainsPoint(tokenPageRange(t), x, y, 1) ? t : null;
+    }
+    return null;
+  }
+
+  // The panel's magnifier cursor over the passage's words on the page (they open the word card on click).
+  // A text range can't carry a cursor, so the element holding the hovered word gets a class for the time.
+  let cursorEl = null;
+  function setLookupCursor(el) {
+    if (cursorEl === el) return;
+    cursorEl?.classList.remove('tuyewn-lookup');
+    cursorEl = el;
+    if (!el) return;
+    if (!document.getElementById('tuyewn-lookup-style')) {
+      const st = document.createElement('style');
+      st.id = 'tuyewn-lookup-style';
+      st.textContent = `.tuyewn-lookup{cursor:${LOOKUP_CURSOR}!important}`;
+      (document.head || document.documentElement).append(st);
+    }
+    el.classList.add('tuyewn-lookup');
+  }
+
+  function onPageHover(e) {
+    if (!ui.tip || pick.step || e.buttons) return;
+    if (e.composedPath().includes(ui.host)) {
+      // reached the card: keep it, even if the way here crossed other words
+      if (e.composedPath().includes(ui.tip)) {
+        clearTimeout(tip.hideTimer);
+        clearTimeout(tip.showTimer);
+      }
+      return;
+    }
+    tip.x = e.clientX;
+    tip.y = e.clientY;
+    if (!tip.raf) tip.raf = requestAnimationFrame(updateHover);
+  }
+
+  function updateHover() {
+    tip.raf = 0;
+    const word = doc?.map ? hoverToken(tip.x, tip.y) : null;
+    setLookupCursor(word ? tokenPageRange(word)?.startContainer.parentElement : null);
+    if (tip.lookup) return; // a looked-up word's card stays until closed
+    // the quick-look card only while a sentence is in focus
+    const t = word && settings.hoverCard && player.sentMarked >= 0 ? word : null;
+    if (t && t === tip.tok) {
+      clearTimeout(tip.hideTimer);
+      return;
+    }
+    clearTimeout(tip.showTimer);
+    // switching words while a card is open waits a little, so moving into the card doesn't swap it
+    if (t) tip.showTimer = setTimeout(() => showTip(t), ui.tip.hidden ? 350 : 200);
+    else if (!ui.tip.hidden) {
+      clearTimeout(tip.hideTimer);
+      tip.hideTimer = setTimeout(hideTip, 250);
+    }
+  }
+
+  function showTip(t) {
+    clearTimeout(tip.hideTimer);
+    const r = tokenPageRange(t)?.getBoundingClientRect();
+    if (!r || !r.width) return hideTip();
+    tip.tok = t;
+    if (!viDict.has(t.key)) scheduleDetail(t);
+    ui.tip.classList.remove('full');
+    ui.tip.replaceChildren(...wordCardNodes(t).filter(Boolean), h('div', { class: 'tip-ft' }, 'Bấm vào từ để chọn — chi tiết ở thẻ từ cuối panel'));
+    placeTip(r);
+  }
+
+  // word, POS, short meaning, IPA US/UK with speakers, Vietnamese meanings, English definition;
+  // full = everything the panel's word card has (sound-by-sound chips, pronunciation and dictionary links)
+  function wordCardNodes(t, full = false) {
+    const tg = TAG[t.tag] || TAG.other;
+    const loading = detailLoading(t);
+    const short = viWord.get(t.key) || viDict.get(t.key)?.trans || '';
+    const vi = viNodes(t, t.tag);
+    return [
+      h(
+        'div',
+        { class: 'tip-hd' },
+        h('b', { class: 'sh-word' }, t.text),
+        tg.abbr || t.tag !== 'other' ? h('span', { class: 'c-pos', title: `${tg.label} — ${tg.vi}`, style: `--c:${tg.color}` }, tg.abbr || tg.label) : null,
+        h('span', { class: 'tip-vi' }, short),
+        loading ? h('span', { class: 'spin on', title: 'Đang tải thông tin từ…' }) : null
+      ),
+      ...(full ? ipaNodes(t) : ipaNodes(t).slice(0, 1)),
+      h('div', { class: 'c-vi' }, ...(loading && !vi.length ? [loadingLine('Đang tải nghĩa tiếng Việt…')] : vi)),
+      h('div', { class: 'c-def' }, ...enDefNodes(t, t.tag, full ? 2 : 1)),
+      full && t.key ? linkGroups(() => t.key) : null,
+    ];
+  }
+
+  // above the target (below if there is no room), kept clear of the panel
+  function placeTip(r) {
+    ui.tip.hidden = false;
+    const w = ui.tip.offsetWidth;
+    const ht = ui.tip.offsetHeight;
+    const right = ui.panel && !ui.panel.hidden ? Math.min(innerWidth, ui.panel.getBoundingClientRect().left) - 8 : innerWidth - 8;
+    let top = r.top - ht - 10;
+    if (top < 8) top = Math.min(r.bottom + 10, innerHeight - ht - 8);
+    ui.tip.style.left = `${clamp(r.left + r.width / 2 - w / 2, 8, Math.max(8, right - w))}px`;
+    ui.tip.style.top = `${Math.max(8, top)}px`;
+  }
+
+  function hideTip() {
+    clearTimeout(tip.showTimer);
+    clearTimeout(tip.hideTimer);
+    tip.tok = null;
+    if (tip.lookup && HAS_HL) CSS.highlights.delete('tuyewn-lookup');
+    tip.lookup = null;
+    if (ui.tip) {
+      ui.tip.hidden = true;
+      ui.tip.classList.remove('full');
+    }
+  }
+
+  // --- "tra từ" from the context menu: a card for the selected word (or a translated phrase) -------
+
+  const SINGLE_WORD_RE = /^\p{L}[\p{L}'’.-]*$/u;
+  let shortcutKeys = null; // command → shortcut, from chrome://extensions/shortcuts
+
+  async function lookupSelection(fallbackText) {
+    await settingsReady;
+    if (!ui.host?.isConnected) {
+      // just the card: the panel stays closed until the user opens the reader
+      buildUI();
+      ui.panel.hidden = true;
+      ui.pill.hidden = true;
+      applyDock();
+    }
+    if (!shortcutKeys) send({ type: 'TR_SHORTCUTS' }).then((r) => (shortcutKeys = r?.keys || {}) && tip.lookup && renderLookup());
+    const sel = window.getSelection();
+    let range = sel?.rangeCount && !sel.isCollapsed && sel.toString().trim() ? sel.getRangeAt(0).cloneRange() : null;
+    // text selected inside a text field is not part of the page selection
+    const field = document.activeElement;
+    const inField = !range && /^(INPUT|TEXTAREA)$/.test(field?.tagName) && field.selectionEnd > field.selectionStart;
+    const text = ((range && sel.toString()) || (inField && field.value.slice(field.selectionStart, field.selectionEnd)) || fallbackText || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!text) return false;
+    let rect = range?.getBoundingClientRect() || (inField && field.getBoundingClientRect());
+    if (!rect || (!rect.width && !rect.height)) rect = new DOMRect(innerWidth / 2, innerHeight / 3, 0, 0);
+    // keep the looked-up text marked while its card is open (the native selection would hide the mark)
+    if (range && HAS_HL) {
+      CSS.highlights.set('tuyewn-lookup', new Highlight(range));
+      sel.removeAllRanges();
+    }
+    const t = SINGLE_WORD_RE.test(text) ? wordInContext(range, text) : null;
+    const L = { text, t, rect, vi: '', viFailed: false };
+    tip.tok = null;
+    tip.lookup = L;
+    renderLookup();
+    const live = () => tip.lookup === L;
+    if (t?.key) {
+      const keys = [t.key, t.lemma].filter((k) => k && !entries.has(k));
+      const jobs = [];
+      if (keys.length) {
+        jobs.push(
+          send({ type: 'TR_LOOKUP', words: keys }).then(async (res) => {
+            for (const k of keys) if (res?.entries && k in res.entries) entries.set(k, res.entries[k]);
+            // an inflected form without its own IPA: try the word it is a form of
+            const formOf = entries.get(t.key)?.formOf;
+            if (formOf && !entries.has(formOf)) {
+              const r2 = await send({ type: 'TR_LOOKUP', words: [formOf] });
+              if (r2?.entries?.[formOf]) entries.set(formOf, r2.entries[formOf]);
+            }
+            if (live()) renderLookup();
+          })
+        );
+      }
+      if (!viWord.has(t.key)) {
+        jobs.push(
+          (async () => {
+            const vi = await localTranslate([t.key]).catch(() => null);
+            if (vi?.[0] && vi[0].toLowerCase() !== t.key) viWord.set(t.key, vi[0]);
+            else {
+              const r = await send({ type: 'TR_WORDS_VI', words: [t.key] });
+              if (r?.vi?.[t.key]) viWord.set(t.key, r.vi[t.key]);
+            }
+            if (live()) renderLookup();
+          })()
+        );
+      }
+      if (!viDict.has(t.key)) {
+        const p = fetchDetail(t.key);
+        renderLookup(); // the meanings are now pending: spinner
+        jobs.push(p.then(() => live() && renderLookup()));
+      }
+      await Promise.allSettled(jobs);
+    } else {
+      let vi = (await localTranslate([text]).catch(() => null))?.[0];
+      if (!vi) {
+        const r = await send({ type: 'TR_TRANSLATE', lines: [text] });
+        vi = r?.vi?.[0] || '';
+      }
+      if (!live()) return true;
+      L.vi = vi;
+      L.viFailed = !vi;
+      renderLookup();
+    }
+    return true;
+  }
+
+  // The selected word as a token, with its part of speech taken from the sentence around it
+  function wordInContext(range, word) {
+    const lower = word.toLowerCase();
+    try {
+      const block = range && blockOf(range.startContainer.parentElement || range.startContainer);
+      const ctx = block?.textContent || '';
+      if (block && ctx.length <= 5000) {
+        const pre = document.createRange();
+        pre.setStart(block, 0);
+        pre.setEnd(range.startContainer, range.startOffset);
+        const off = pre.toString().length;
+        const tok = analyze(ctx, null).tokens.find((x) => x.start <= off + 1 && off < x.end && x.text.toLowerCase().includes(lower));
+        if (tok?.key) return { ...tok, text: word };
+      }
+    } catch {}
+    const tok = analyze(word, null).tokens[0];
+    return tok?.key ? { ...tok, text: word } : { i: -1, text: word, key: lower, lemma: '', tag: 'other', sent: -1 };
+  }
+
+  function renderLookup() {
+    const L = tip.lookup;
+    if (!L) return;
+    const x = h('button', { class: 'ic mini tip-x', title: 'Đóng (Esc)', 'aria-label': 'Đóng', onclick: hideTip }, icon('close'));
+    let body;
+    if (L.t) body = wordCardNodes(L.t, true);
+    else {
+      const say = h('button', { class: 'ic mini', title: 'Nghe', 'aria-label': 'Nghe', onclick: () => sayText(L.text) }, icon('speaker'));
+      body = [
+        h('div', { class: 'tip-hd' }, h('b', { class: 'tip-src' }, L.text.length > 160 ? `${L.text.slice(0, 160)}…` : L.text), say),
+        L.vi
+          ? h('div', { class: 'tip-tr' }, L.vi)
+          : L.viFailed
+            ? h('div', { class: 'loading-line' }, 'Không dịch được — thử lại sau')
+            : loadingLine('Đang dịch…'),
+      ];
+    }
+    const kbd = (k) => h('kbd', null, k);
+    const quick = shortcutKeys?.['lookup-selection'];
+    const help = h(
+      'div',
+      { class: 'tip-ft tip-keys' },
+      h('span', null, kbd('1'), ' nghe giọng Mỹ'),
+      h('span', null, kbd('2'), ' nghe giọng Anh'),
+      h('span', null, kbd('Esc'), ' đóng'),
+      L.t ? h('div', { class: 'tip-note' }, 'Đỏ = Anh-Mỹ, xanh = Anh-Anh. Rê chuột lên từng âm để xem cách đọc, bấm để xem video.') : null,
+      quick ? h('div', { class: 'tip-note' }, 'Tra nhanh: bôi đen rồi bấm ', kbd(quick)) : null
+    );
+    ui.tip.replaceChildren(x, ...body.filter(Boolean), help);
+    ui.tip.classList.add('full');
+    placeTip(L.rect);
+  }
+
+  function onTipOutside(e) {
+    if (!tip.lookup || ui.tip?.hidden) return;
+    if (!e.composedPath().includes(ui.tip)) hideTip();
+  }
+
+  // In the looked-up card: 1 / 2 = hear it in the US / UK voice, Esc = close
+  function onTipKey(e) {
+    if (!ui.tip || ui.tip.hidden) return;
+    if (e.key === 'Escape') return hideTip();
+    const L = tip.lookup;
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
+    if (!L || typing || e.ctrlKey || e.metaKey || e.altKey || (e.key !== '1' && e.key !== '2')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    sayText(L.t ? L.t.text : L.text, e.key === '1' ? 'US' : 'UK');
+  }
+
   function onPageWordClick(e) {
     if (pick.step) return; // picking a reading region
     if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
@@ -1775,9 +2197,9 @@
     // following an underlying link or triggering the host page's click handler.
     e.preventDefault();
     e.stopImmediatePropagation();
+    hideTip();
     if (player.playing) play(t.i);
     setCurrent(t.i);
-    setSheetOpen(true);
   }
 
   function highlightPage(t) {
@@ -1907,6 +2329,7 @@
       ui.subVi.classList.remove('shown'); // "hide translation": blurred again for each new sentence
     }
     ui.subVi.textContent = vi;
+    markViWord();
     ui.subVi.classList.toggle('blur', settings.hideTrans);
     box.hidden = false;
     positionSubtitle();
@@ -2046,7 +2469,7 @@
   // Two modes only: light / dark. The button shows the mode it switches to (☀ in dark, 🌙 in light).
   function applyTheme() {
     const dark = settings.theme === 'dark';
-    for (const el of [ui.panel, ui.pill, ui.pickBanner]) el?.classList.toggle('t-dark', dark);
+    for (const el of [ui.panel, ui.pill, ui.pickBanner, ui.tip]) el?.classList.toggle('t-dark', dark);
     if (ui.themeBtn) {
       ui.themeBtn.replaceChildren(icon(dark ? 'sun' : 'moon'));
       ui.themeBtn.title = dark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối';
@@ -2115,7 +2538,7 @@
   };
   const themeVars = (t) => Object.entries(THEMES[t]).map(([k, v]) => `--${k}:${v}`).join(';');
   const THEME_CSS = `
-.panel,.pill,.pick-banner{${themeVars('light')};font:13px/1.45 ${FONT};color:var(--fg)}
+.panel,.pill,.pick-banner,.wtip{${themeVars('light')};font:13px/1.45 ${FONT};color:var(--fg)}
 .t-dark{${themeVars('dark')}}
 `;
 
@@ -2213,6 +2636,8 @@ select{font:inherit;font-size:12px;color:var(--fg);background:var(--bg);border:1
 .sb .vn{display:none;margin-top:5px;font-size:.88em;line-height:1.55;color:var(--vi)}
 .bilingual .sb .vn,.sb.cur .vn{display:block}
 .sb .vn:empty{display:none!important}
+mark.vh{background:color-mix(in srgb,var(--hl) 40%,transparent);color:inherit;border-radius:3px;box-shadow:0 1px 0 var(--under)}
+.sub-vi mark.vh{background:rgba(255,212,0,.3);color:#fff;border-radius:3px;box-shadow:0 2px 0 #FF6D00}
 .hide-trans .vn:not(.shown){filter:blur(5px);cursor:pointer;user-select:none}
 .hide-trans .sb.cur .vn:not(.shown)::after{content:''}
 .sb-play{position:absolute;right:4px;top:5px;opacity:0;transition:opacity .15s}
@@ -2259,6 +2684,30 @@ select{font:inherit;font-size:12px;color:var(--fg);background:var(--bg);border:1
 .sh-vi{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--vi);font-weight:600}
 .sh-more{padding:0 14px 12px;max-height:42vh;overflow:auto}
 .sheet:not(.open) .sh-more{display:none}
+.spin{display:none;width:14px;height:14px;flex:none;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:tr-spin .8s linear infinite}
+.sheet.loading .sh-line .spin,.spin.on,.loading-line .spin{display:inline-block}
+.loading-line{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12.5px;color:var(--muted)}
+@keyframes tr-spin{to{transform:rotate(360deg)}}
+/* quick-look card on the page */
+.wtip{position:fixed;z-index:2147483647;width:max-content;max-width:min(380px,calc(100vw - 16px));max-height:min(320px,60vh);overflow:auto;padding:10px 12px 8px;
+  background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px var(--shadow),0 2px 6px rgba(0,0,0,.12)}
+.wtip[hidden]{display:none}
+.wtip.full{width:400px;max-height:min(560px,calc(100vh - 16px))}
+.tip-hd{display:flex;align-items:center;gap:8px;margin-bottom:4px;min-width:200px}
+.tip-vi{color:var(--vi);font-weight:600}
+.wtip .ipa-line{font-size:16px}
+.tip-ft{margin-top:6px;font-size:11px;color:var(--muted)}
+.wtip .tip-x{float:right;margin:-4px -6px 0 8px}
+.tip-keys{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin-top:10px;padding-top:8px;border-top:1px solid var(--line)}
+.tip-note{width:100%;line-height:1.5}
+.wtip kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;
+  background:var(--soft);color:var(--fg);font:600 11px/16px ${FONT};text-align:center}
+/* accent captions in the cards */
+.wtip .ipa-line::before{width:22px;flex:none;font:700 10px/1 ${FONT};letter-spacing:.04em}
+.wtip .ipa-line.us::before{content:'US';color:var(--us)}
+.wtip .ipa-line.uk::before{content:'UK';color:var(--uk)}
+.tip-src{font-weight:600;font-size:14px;line-height:1.45}
+.tip-tr{margin-top:6px;font-size:15px;line-height:1.5;font-weight:600;color:var(--vi)}
 .c-pos{font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;color:var(--c);border:1px solid var(--c);white-space:nowrap;flex:none}
 .c-ipa{font-family:${IPA_FONT}}
 .ipa-p{font-family:${IPA_FONT};white-space:nowrap}
@@ -2466,6 +2915,7 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
     ui.shIpa = h('span', { class: 'sh-ipa' });
     ui.shPos = h('span', { class: 'c-pos' });
     ui.shVi = h('span', { class: 'sh-vi' });
+    ui.shLoad = h('span', { class: 'spin', title: 'Đang tải thông tin từ…' });
     ui.shSay = iconBtn('speaker', 'Phát âm từ này', (e) => {
       e.stopPropagation();
       sayCardWord();
@@ -2480,7 +2930,7 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
     ui.sheet = h(
       'div',
       { class: 'sheet', hidden: true },
-      h('div', { class: 'sh-line', onclick: () => setSheetOpen(!sheetOpen) }, ui.shWord, ui.shIpa, ui.shPos, ui.shVi, ui.shSay, ui.shToggle),
+      h('div', { class: 'sh-line', onclick: () => setSheetOpen(!sheetOpen) }, ui.shWord, ui.shIpa, ui.shPos, ui.shVi, ui.shLoad, ui.shSay, ui.shToggle),
       h(
         'div',
         { class: 'sh-more' },
@@ -2581,7 +3031,13 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
     ui.prog = h('span', { class: 'tl-sent', title: 'Câu hiện tại / tổng số câu' });
     // compact on purpose: play/pause, time, progress, sentence — the rest lives in the panel
     ui.tl = h('div', { class: 'tl', hidden: true }, ui.tlPlay, ui.time, ui.pbar, ui.prog);
-    root.append(ui.panel, ui.pill, ui.sub, ui.tl);
+    ui.tip = h('div', { class: 'wtip', hidden: true, role: 'tooltip' });
+    ui.tip.addEventListener('pointerleave', () => {
+      if (tip.lookup) return; // closed by the user (×, Esc, click outside)
+      clearTimeout(tip.hideTimer);
+      tip.hideTimer = setTimeout(hideTip, 250);
+    });
+    root.append(ui.panel, ui.pill, ui.sub, ui.tl, ui.tip);
 
     host.addEventListener('keydown', onPanelKey);
     applyTheme();
@@ -2629,7 +3085,6 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
     const i = Number(w.dataset.i);
     if (player.playing) play(i);
     setCurrent(i);
-    setSheetOpen(true);
   }
 
   function panelSelection() {
@@ -2657,7 +3112,6 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
       const t = doc?.tokens[Number(start.dataset.i)];
       if (!t?.key || text.toLocaleLowerCase() !== t.text.toLocaleLowerCase()) return;
       setCurrent(t.i);
-      setSheetOpen(true);
     }, 0);
   }
 
@@ -2726,6 +3180,8 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
   function close() {
     stop();
     clearPageHighlights();
+    hideTip();
+    setLookupCursor(null);
     if (STANDALONE) {
       window.close();
       return;
@@ -2928,6 +3384,8 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
       opt('Ẩn bản dịch — bấm vào để xem (tự đoán trước)', 'hideTrans'),
       opt('IPA dưới mỗi từ', 'showIPA'),
       opt('Nghĩa tiếng Việt dưới mỗi từ', 'showVI'),
+      opt('Tô nghĩa của từ đang đọc trong câu dịch (gần đúng)', 'viMark', markViWord),
+      opt('Rê chuột vào từ trên trang để xem nhanh (khi đang đọc)', 'hoverCard', hideTip),
       h('h5', null, 'Phụ đề & timeline trên trang'),
       opt('Phụ đề tiếng Việt kiểu YouTube (phím C / nút CC)', 'subtitles', updateSubtitle),
       h(
@@ -3015,6 +3473,7 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
       s.vnEl.textContent = viSent[i] || '';
       s.vnEl.title = `Bản dịch (${transProvider})`;
     });
+    markViWord();
   }
 
   function updateInlineVi() {
@@ -3143,7 +3602,6 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
               onclick: () => {
                 setTab('read');
                 setCurrent(it.tok.i);
-                setSheetOpen(true);
               },
             },
             h('span', { class: 'vw' }, it.word),
@@ -3185,7 +3643,8 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
     ui.sheet.classList.toggle('open', open);
     ui.shToggle.replaceChildren(icon(open ? 'down' : 'up'));
     ui.shToggle.title = open ? 'Thu gọn' : 'Xem chi tiết';
-    if (open && cardTok) scheduleDetail(cardTok);
+    // the details were not rendered while collapsed: render them for the current word
+    if (open && cardTok) showCard(cardTok);
   }
 
   function sayCardWord() {
@@ -3205,13 +3664,16 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
     ui.shPos.style.setProperty('--c', tg.color);
     ui.shVi.textContent = (t.key && (viWord.get(t.key) || viDict.get(t.key)?.trans)) || '';
     ui.sheet.classList.toggle('open', sheetOpen);
-    if (sheetOpen) {
-      ui.cIpa.replaceChildren(...ipaNodes(t));
-      ui.cVi.replaceChildren(...(t.key ? viNodes(t, t.tag) : []));
-      ui.cDef.replaceChildren(...(t.key ? enDefNodes(t, t.tag, 2) : []));
-    }
     // details are fetched for a word the reader rests on (or the user opened)
     if (sheetOpen || !player.playing) scheduleDetail(t);
+    const loading = detailLoading(t);
+    ui.sheet.classList.toggle('loading', loading);
+    if (sheetOpen) {
+      ui.cIpa.replaceChildren(...ipaNodes(t));
+      const vi = t.key ? viNodes(t, t.tag) : [];
+      ui.cVi.replaceChildren(...(loading && !vi.length ? [loadingLine('Đang tải nghĩa tiếng Việt…')] : vi));
+      ui.cDef.replaceChildren(...(t.key ? enDefNodes(t, t.tag, 2) : []));
+    }
   }
 
   // --- summary (Gemini) ------------------------------------------------------
@@ -3480,10 +3942,14 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
     if (!path.includes(ui.menu) && !path.includes(ui.aaBtn)) ui.menu.hidden = true;
   }
   document.addEventListener('pointerdown', onDocPointerDown, true);
+  document.addEventListener('pointerdown', onTipOutside, true);
+  document.addEventListener('keydown', onTipKey, true);
   document.addEventListener('click', onPageWordClick, true);
+  document.addEventListener('mousemove', onPageHover, { capture: true, passive: true });
   document.addEventListener('click', onPickClick, true);
   document.addEventListener('keydown', onPickKey, true);
   window.addEventListener('scroll', onPageScrollForSub, { capture: true, passive: true });
+  window.addEventListener('scroll', hideTip, { capture: true, passive: true });
 
   // ---------------------------------------------------------------------------
   // Entry points
@@ -3495,13 +3961,14 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
     setMinimized(false);
     stop();
     clearPageHighlights();
+    hideTip();
+    setLookupCursor(null);
     player.sentMarked = -1;
     player.cur = -1;
     player.finished = false;
     viSent = [];
     sumState = { state: 'idle', data: null, error: '' };
-    cardTok = null;
-    sheetOpen = false;
+    cardTok = null; // the sheet keeps the open/closed state the user chose
     doc = analyze(text, map);
     if (settings.tab === 'sum') renderSummary();
     if (settings.tab === 'settings') setTab('read');
@@ -3532,10 +3999,14 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
       setPush(0);
     } catch {}
     document.removeEventListener('pointerdown', onDocPointerDown, true);
+    document.removeEventListener('pointerdown', onTipOutside, true);
+    document.removeEventListener('keydown', onTipKey, true);
     document.removeEventListener('click', onPageWordClick, true);
+    document.removeEventListener('mousemove', onPageHover, { capture: true });
     document.removeEventListener('click', onPickClick, true);
     document.removeEventListener('keydown', onPickKey, true);
     window.removeEventListener('scroll', onPageScrollForSub, { capture: true });
+    window.removeEventListener('scroll', hideTip, { capture: true });
     endPick();
     removeEventListener('resize', applyDock);
     ui.host?.remove();
@@ -3545,7 +4016,12 @@ button.ph:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
     chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (msg?.type !== 'TR_OPEN') return;
       // mode: 'selection' (context menu on a selection) | 'page' | 'pick' | 'auto' (selection, else whole page)
+      //       | 'lookup' (card for the selected word / phrase, without the panel)
       const mode = msg.mode || 'selection';
+      if (mode === 'lookup') {
+        lookupSelection(msg.text || '').then((ok) => sendResponse({ ok }), () => sendResponse({ ok: false }));
+        return true; // async response
+      }
       if (mode === 'pick') {
         startPick();
         sendResponse({ ok: true });

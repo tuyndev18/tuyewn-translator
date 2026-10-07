@@ -41,6 +41,7 @@ Cách dùng đơn giản: bôi đen đoạn văn, chuột phải, chọn Tuyewn 
 **Từ vựng và phát âm**
 
 - Bấm vào một từ để xem phiên âm IPA giọng Mỹ và giọng Anh (bấm loa để nghe từng giọng), loại từ theo ngữ cảnh, nghĩa tiếng Việt.
+- Khi đang đọc, rê chuột lên một từ trên trang sẽ hiện thẻ xem nhanh: IPA, loại từ, nghĩa tiếng Việt và tiếng Anh. Tắt được trong menu Aa.
 - IPA được tách thành từng âm. Rê chuột lên một âm sẽ thấy gợi ý cách đọc kèm từ ví dụ.
 - Mở YouGlish, Forvo, Google, Cambridge, Longman, Oxford trong cửa sổ popup để nghe người bản xứ đọc. Extension chỉ mở trang gốc, không lấy dữ liệu từ các trang này.
 - Có thể hiện IPA và nghĩa tiếng Việt ngay dưới mỗi từ, hoặc tô màu theo loại từ.
@@ -70,10 +71,11 @@ Cần Chrome hoặc Edge 116 trở lên. Dịch trên máy cần Chrome 138 tr�
 
 | Muốn làm gì | Cách làm |
 |---|---|
-| Đọc một đoạn | Bôi đen, chuột phải, chọn "Tuyewn Reader: đọc ..." |
+| Đọc một đoạn | Bôi đen, chuột phải, chọn "Tuyewn Reader: đọc" |
 | Đọc cả trang | Chuột phải vào trang, chọn "đọc cả trang". Hoặc bấm icon extension khi không bôi đen gì |
 | Đọc một vùng | Chuột phải, chọn "chọn điểm bắt đầu → kết thúc", rồi click vào chỗ bắt đầu và chỗ kết thúc |
-| Tra từ | Bấm vào từ trong panel hoặc trên đoạn đang đọc |
+| Tra nhanh một từ hay một cụm | Bôi đen, chuột phải, chọn "Tuyewn Reader: tra từ". Thẻ hiện ngay cạnh chỗ bôi đen, không mở panel |
+| Tra từ khi đang đọc | Bấm vào từ trong panel hoặc trên đoạn đang đọc |
 | Luyện nói | Bật nút lặp câu trên thanh công cụ. Số lần lặp và thời gian nghỉ chỉnh trong menu Aa |
 
 Phím tắt:
@@ -81,6 +83,8 @@ Phím tắt:
 | Phím | Tác dụng |
 |---|---|
 | `Alt+Shift+E` | Đọc đoạn đang bôi đen, không bôi đen thì đọc cả trang |
+| `Alt+Shift+D` | Tra từ / dịch đoạn đang bôi đen (thẻ hiện cạnh chữ) |
+| `1` / `2` | Trong thẻ tra từ: nghe giọng Mỹ / giọng Anh |
 | `Space` | Phát / tạm dừng |
 | `←` / `→` | Câu trước / câu sau |
 | `R` | Bật/tắt lặp câu |

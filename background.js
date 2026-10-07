@@ -9,19 +9,32 @@ const BATCH = 20;
 
 const MENU_PAGE = 'tuyewn-page';
 const MENU_PICK = 'tuyewn-pick';
+const MENU_LOOKUP = 'tuyewn-lookup';
 
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({ id: MENU_ID, title: 'Tuyewn Reader: đọc "%s"', contexts: ['selection'] });
-    chrome.contextMenus.create({ id: MENU_PAGE, title: 'Tuyewn Reader: đọc cả trang', contexts: ['page'] });
-    chrome.contextMenus.create({ id: MENU_PICK, title: 'Tuyewn Reader: chọn điểm bắt đầu → kết thúc', contexts: ['page', 'selection'] });
-  });
-});
+// Keyboard shortcuts as set in chrome://extensions/shortcuts ('' when unassigned)
+async function shortcuts() {
+  const all = await chrome.commands.getAll();
+  return Object.fromEntries(all.map((c) => [c.name, c.shortcut || '']));
+}
+
+// The menu items show their shortcut, as read when the menus are (re)built
+async function createMenus() {
+  const keys = await shortcuts().catch(() => ({}));
+  const withKey = (title, cmd) => (keys[cmd] ? `${title}   (${keys[cmd]})` : title);
+  await chrome.contextMenus.removeAll();
+  chrome.contextMenus.create({ id: MENU_LOOKUP, title: withKey('Tuyewn Reader: tra từ', 'lookup-selection'), contexts: ['selection'] });
+  chrome.contextMenus.create({ id: MENU_ID, title: withKey('Tuyewn Reader: đọc', 'read-selection'), contexts: ['selection'] });
+  chrome.contextMenus.create({ id: MENU_PAGE, title: 'Tuyewn Reader: đọc cả trang', contexts: ['page'] });
+  chrome.contextMenus.create({ id: MENU_PICK, title: 'Tuyewn Reader: chọn điểm bắt đầu → kết thúc', contexts: ['page', 'selection'] });
+}
+chrome.runtime.onInstalled.addListener(createMenus);
+chrome.runtime.onStartup.addListener(createMenus);
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (!tab) return;
   const frameId = info.frameId ?? 0;
-  if (info.menuItemId === MENU_ID) openReader(tab, frameId, info.selectionText || '');
+  if (info.menuItemId === MENU_LOOKUP) openReader(tab, frameId, info.selectionText || '', 'lookup');
+  else if (info.menuItemId === MENU_ID) openReader(tab, frameId, info.selectionText || '');
   else if (info.menuItemId === MENU_PAGE) openReader(tab, frameId, '', 'page');
   else if (info.menuItemId === MENU_PICK) openReader(tab, frameId, '', 'pick');
 });
@@ -30,6 +43,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 chrome.action.onClicked.addListener((tab) => openReader(tab, 0, '', 'auto'));
 chrome.commands.onCommand.addListener((command, tab) => {
   if (command === 'read-selection' && tab) openReader(tab, 0, '', 'auto');
+  else if (command === 'lookup-selection' && tab) openReader(tab, 0, '', 'lookup');
 });
 
 async function openReader(tab, frameId, selectionText, mode = 'selection') {
@@ -74,6 +88,7 @@ const HANDLERS = {
   TR_GEMINI_SET: async (msg) => geminiSet(msg),
   TR_GEMINI_MODELS: async () => ({ models: await freeModels(true) }),
   TR_CLEAR_CACHE: async () => clearCache(),
+  TR_SHORTCUTS: async () => ({ keys: await shortcuts() }),
   TR_EDGE_TTS: async (msg) => edgeTtsRelay(String(msg.text || ''), String(msg.voice || ''), Number(msg.rate) || 1),
 };
 
